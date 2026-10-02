@@ -1,4 +1,4 @@
-# Graph and Heap-Based Redundancy-Aware Feature Selection with From-Scratch PCA/SVD
+# Graph and Heap-Based Redundancy-Aware Feature Selection with From-Scratch PCA/SVD for Satellite Land-Cover Classification
 
 Data Structures and Algorithms project, M.Tech AIML, Bennett University.
 
