@@ -47,6 +47,7 @@ python scripts/run_fs_experiment.py
 ```
 
 The scripts download the dataset from the UCI repository, so they need internet access.
+Run all commands from the repository root.
 
 ## Progress
 
