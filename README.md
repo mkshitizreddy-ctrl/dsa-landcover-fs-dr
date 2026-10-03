@@ -61,7 +61,7 @@ Run all commands from the repository root.
 | KD-tree and kNN | Done, matches sklearn kNN |
 | Feature selection experiment | Done |
 | PCA/SVD from scratch | In progress |
-| Runtime comparison against naive filter | Planned |
+| Runtime comparison against naive filter | Done, selection scales near-linearly, graph build dominates |
 | PCA rows in the pipeline comparison | Planned |
 | Report and final presentation | In progress |
 
