@@ -30,6 +30,9 @@ src/
   knn.py          kNN classifier on the KD-tree
 tests/            one test file per module
 scripts/          experiment scripts
+  run_selection.py       selection at several thresholds on Landsat
+  run_fs_experiment.py   accuracy and query time per threshold
+  run_complexity.py      runtime study against the naive filter
 results/          experiment outputs (csv)
 ```
 
@@ -44,6 +47,7 @@ python tests/test_selection.py
 python tests/test_knn.py
 python scripts/run_selection.py
 python scripts/run_fs_experiment.py
+python scripts/run_complexity.py
 ```
 
 The scripts download the dataset from the UCI repository, so they need internet access.
@@ -63,7 +67,7 @@ Run all commands from the repository root.
 | PCA/SVD from scratch | In progress |
 | Runtime comparison against naive filter | Done, selection scales near-linearly, graph build dominates |
 | PCA rows in the pipeline comparison | Planned |
-| Report and final presentation | In progress |
+| Report and final presentation | Report: sections 1, 3.1, 3.2, 3.4, 4, 5, 6 drafted; Existing Solutions and PCA pending |
 
 ## Results so far
 
@@ -78,3 +82,14 @@ Test accuracy on the official split, using our kNN with k = 5. Raw-feature accur
 | Heap + BFS, t = 0.7 | 2 | 0.7845 | 0.7440 | 0.21 s |
 
 Feature selection alone trades some accuracy for much faster queries. Lower thresholds remove more features and lose more accuracy.
+
+### Runtime on synthetic data (d = 1600 features)
+
+| Stage | Time |
+|---|---|
+| Graph build | 175 ms |
+| Heap + BFS selection only | 6.0 ms |
+| Heap + BFS total | 181 ms |
+| Naive filter | 55 ms |
+
+The selection step grows close to linearly (fitted exponent 1.16, naive 1.86), but graph construction is quadratic and dominates, so the naive filter is faster end to end in our implementation.
