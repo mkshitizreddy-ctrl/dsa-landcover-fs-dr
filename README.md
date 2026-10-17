@@ -1,4 +1,4 @@
-# Graph and Heap-Based Redundancy-Aware Feature Selection with From-Scratch PCA/SVD for Satellite Land-Cover Classification
+# Graph-Based Feature Selection & PCA for Land-Cover Classification
 
 Data Structures and Algorithms project, M.Tech AIML, Bennett University.
 
@@ -28,11 +28,9 @@ src/
   selection.py    heap + BFS selection, per-component variant, naive baseline
   kdtree.py       KD-tree with k-nearest-neighbour query
   knn.py          kNN classifier on the KD-tree
+  pca.py          PCA from scratch (covariance, power iteration, deflation)
 tests/            one test file per module
 scripts/          experiment scripts
-  run_selection.py       selection at several thresholds on Landsat
-  run_fs_experiment.py   accuracy and query time per threshold
-  run_complexity.py      runtime study against the naive filter
 results/          experiment outputs (csv)
 ```
 
@@ -45,13 +43,14 @@ python tests/test_mi_sorting.py
 python tests/test_graph.py
 python tests/test_selection.py
 python tests/test_knn.py
+python tests/test_pca.py
 python scripts/run_selection.py
 python scripts/run_fs_experiment.py
 python scripts/run_complexity.py
+python scripts/run_pca_experiment.py
 ```
 
 The scripts download the dataset from the UCI repository, so they need internet access.
-Run all commands from the repository root.
 
 ## Progress
 
@@ -64,10 +63,10 @@ Run all commands from the repository root.
 | Heap + BFS selection, Union-Find variant, naive baseline | Done, matches naive at all thresholds |
 | KD-tree and kNN | Done, matches sklearn kNN |
 | Feature selection experiment | Done |
-| PCA/SVD from scratch | In progress |
-| Runtime comparison against naive filter | Done, selection scales near-linearly, graph build dominates |
-| PCA rows in the pipeline comparison | Planned |
-| Report and final presentation | Report: sections 1, 3.1, 3.2, 3.4, 4, 5, 6 drafted; Existing Solutions and PCA pending |
+| PCA from scratch | Done, tested against numpy and sklearn |
+| Runtime comparison against naive filter | Done |
+| PCA rows in the pipeline comparison | Done |
+| Report and final presentation | In progress |
 
 ## Results so far
 
@@ -81,15 +80,13 @@ Test accuracy on the official split, using our kNN with k = 5. Raw-feature accur
 | Heap + BFS, t = 0.8 | 5 | 0.8520 | 0.8291 | 1.30 s |
 | Heap + BFS, t = 0.7 | 2 | 0.7845 | 0.7440 | 0.21 s |
 
-Feature selection alone trades some accuracy for much faster queries. Lower thresholds remove more features and lose more accuracy.
+PCA runs (second run, slower machine, raw took 33.14 s, so compare times only within this table):
 
-### Runtime on synthetic data (d = 1600 features)
+| Setting | Dims | Accuracy | Macro-F1 | Query time |
+|---|---|---|---|---|
+| Raw | 36 | 0.9045 | 0.8916 | 33.14 s |
+| PCA, 95% variance | 6 | 0.8950 | 0.8768 | 5.59 s |
+| t = 0.95, then PCA | 6 | 0.8935 | 0.8765 | 5.13 s |
+| t = 0.9, then PCA | 5 | 0.8640 | 0.8417 | 4.21 s |
 
-| Stage | Time |
-|---|---|
-| Graph build | 175 ms |
-| Heap + BFS selection only | 6.0 ms |
-| Heap + BFS total | 181 ms |
-| Naive filter | 55 ms |
-
-The selection step grows close to linearly (fitted exponent 1.16, naive 1.86), but graph construction is quadratic and dominates, so the naive filter is faster end to end in our implementation.
+Feature selection alone trades some accuracy for much faster queries. Lower thresholds remove more features and lose more accuracy. PCA alone keeps 6 of 36 dims at 0.8950 accuracy, and selecting features before PCA gave no further gain.
