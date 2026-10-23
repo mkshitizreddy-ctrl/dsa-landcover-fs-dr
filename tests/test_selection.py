@@ -1,33 +1,90 @@
+
 import sys
+
 import numpy as np
+
 sys.path.insert(0, "src")
+
 from graph import build_corr_graph
-from selection import select_features, select_naive, select_per_component
+from selection import (
+    select_features,
+    select_naive,
+    select_per_component,
+)
 
-# 1. data with correlated pairs
-rng = np.random.default_rng(2)
-X = rng.normal(size=(400, 20))
-for j in range(1, 20, 2):
-    X[:, j] = X[:, j - 1] + 0.2 * rng.normal(size=400)
-C = np.abs(np.corrcoef(X.T))
-C = np.triu(C) + np.triu(C, 1).T
-scores = list(rng.random(20))
 
-for t in (0.5, 0.8, 0.9):
-    g = build_corr_graph(C, t)
-    S = select_features(scores, g)
-    # 2. heap + BFS gives the same subset as the naive greedy
-    assert sorted(S) == sorted(select_naive(scores, C, t))
-    # 3. no two selected features are correlated above t
-    for a in S:
-        for b in S:
-            if a != b:
-                assert C[a, b] <= t
-    # 4. every dropped feature has a selected neighbour
-    for f in range(20):
-        if f not in S:
-            assert any(C[f, s] > t for s in S)
-    # 5. per-component variant never selects more
-    assert len(select_per_component(scores, g)) <= len(S)
+def make_test_data():
+    rng = np.random.default_rng(42)
+    n = 500
 
-print("selection tests passed")
+    # Six independent signals, each represented by a highly
+    # correlated pair of features.
+    base = rng.normal(size=(n, 6))
+    X = np.empty((n, 12))
+
+    for i in range(6):
+        X[:, 2 * i] = base[:, i]
+        X[:, 2 * i + 1] = (
+            base[:, i] + 0.03 * rng.normal(size=n)
+        )
+
+    correlation = np.corrcoef(X, rowvar=False)
+    return X, correlation
+
+
+def test_heap_bfs_selection_matches_expected_greedy_selection():
+    _, correlation = make_test_data()
+    threshold = 0.9
+    graph = build_corr_graph(correlation, threshold)
+
+    scores = np.arange(graph.n, dtype=float)
+
+    selected = select_features(scores, graph)
+
+    # Each correlated pair is connected. The higher-scoring
+    # member of each pair should be selected.
+    expected = [1, 3, 5, 7, 9, 11]
+
+    assert set(selected) == set(expected)
+    assert len(selected) == len(expected)
+
+
+def test_selected_features_have_no_direct_graph_edges():
+    _, correlation = make_test_data()
+    graph = build_corr_graph(correlation, 0.9)
+
+    rng = np.random.default_rng(7)
+    scores = rng.random(graph.n)
+
+    selected = select_features(scores, graph)
+
+    for i, feature in enumerate(selected):
+        for other in selected[i + 1:]:
+            assert other not in graph.adj[feature]
+
+
+def test_naive_selection_matches_greedy_correlation_rule():
+    _, correlation = make_test_data()
+    threshold = 0.9
+
+    scores = np.arange(correlation.shape[0], dtype=float)
+    selected = select_naive(scores, correlation, threshold)
+
+    # With the generated data, each correlated pair retains
+    # its higher-scoring feature.
+    expected = [11, 9, 7, 5, 3, 1]
+
+    assert selected == expected
+
+
+def test_per_component_selects_one_best_feature_per_component():
+    _, correlation = make_test_data()
+    graph = build_corr_graph(correlation, 0.9)
+
+    scores = np.arange(graph.n, dtype=float)
+    selected = select_per_component(scores, graph)
+
+    expected = [1, 3, 5, 7, 9, 11]
+
+    assert selected == expected
+    assert len(selected) == len(set(selected))

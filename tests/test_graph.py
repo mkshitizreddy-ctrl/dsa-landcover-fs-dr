@@ -1,48 +1,115 @@
+
 import sys
+
 import numpy as np
 from scipy.sparse import csr_matrix
 from scipy.sparse.csgraph import connected_components
+
 sys.path.insert(0, "src")
+
 from graph import build_corr_graph, bfs, dfs, components
 from unionfind import UnionFind
 
-# 1. data with a few correlated columns
-rng = np.random.default_rng(1)
-X = rng.normal(size=(300, 12))
-X[:, 1] = X[:, 0] + 0.1 * rng.normal(size=300)
-X[:, 2] = X[:, 1] + 0.1 * rng.normal(size=300)
-X[:, 5] = X[:, 4] + 0.1 * rng.normal(size=300)
-C = np.abs(np.corrcoef(X.T))
-t = 0.9
-g = build_corr_graph(C, t)
 
-# 2. edges match the threshold
-for i in range(12):
-    for j in range(12):
-        if i != j:
-            assert (j in g.adj[i]) == (C[i, j] > t)
+def make_test_data():
+    rng = np.random.default_rng(42)
+    n = 300
+    base = rng.normal(size=(n, 6))
+    X = np.empty((n, 12))
 
-# 3. BFS components match Union-Find and scipy
-comp, k = components(g)
-A = csr_matrix((C > t) & ~np.eye(12, dtype=bool))
-k_ref, lab_ref = connected_components(A, directed=False)
-assert k == k_ref
-uf = UnionFind(12)
-for i in range(12):
-    for j in g.adj[i]:
-        uf.union(i, j)
-assert uf.count == k
-for i in range(12):
-    for j in range(12):
-        same = comp[i] == comp[j]
-        assert same == (uf.find(i) == uf.find(j)) == (lab_ref[i] == lab_ref[j])
+    for i in range(6):
+        X[:, 2 * i] = base[:, i]
+        X[:, 2 * i + 1] = (
+            base[:, i] + 0.03 * rng.normal(size=n)
+        )
 
-# 4. DFS reaches the same nodes as BFS
-for s in range(12):
-    assert set(dfs(g, s)) == set(bfs(g, s))
+    return X
 
-# 5. depth-1 BFS gives exactly the neighbours
-for s in range(12):
-    assert set(bfs(g, s, max_depth=1)) - {s} == set(g.adj[s])
 
-print("graph tests passed")
+def make_graph():
+    X = make_test_data()
+    correlation = np.corrcoef(X, rowvar=False)
+    graph = build_corr_graph(correlation, 0.9)
+    return graph, correlation
+
+
+def test_graph_edges_follow_correlation_threshold():
+    graph, correlation = make_graph()
+
+    assert graph.n == correlation.shape[0]
+
+    for i in range(graph.n):
+        for j in graph.adj[i]:
+            assert i in graph.adj[j]
+            assert correlation[i, j] > 0.9
+
+
+def test_components_match_scipy_and_union_find():
+    graph, _ = make_graph()
+    n = graph.n
+
+    rows = []
+    cols = []
+
+    for i in range(n):
+        for j in graph.adj[i]:
+            rows.append(i)
+            cols.append(j)
+
+    adjacency = csr_matrix(
+        (np.ones(len(rows)), (rows, cols)),
+        shape=(n, n),
+    )
+
+    _, scipy_labels = connected_components(
+        adjacency, directed=False
+    )
+
+    scipy_groups = {
+        frozenset(np.flatnonzero(scipy_labels == label))
+        for label in np.unique(scipy_labels)
+    }
+
+    labels, count = components(graph)
+    assert count == len(scipy_groups)
+
+    our_groups = {
+        frozenset(i for i, label in enumerate(labels) if label == c)
+        for c in range(count)
+    }
+    assert our_groups == scipy_groups
+
+    uf = UnionFind(n)
+
+    for i in range(n):
+        for j in graph.adj[i]:
+            uf.union(i, j)
+
+    uf_groups = {}
+
+    for i in range(n):
+        root = uf.find(i)
+        uf_groups.setdefault(root, set()).add(i)
+
+    assert {
+        frozenset(group) for group in uf_groups.values()
+    } == scipy_groups
+
+
+def test_bfs_and_dfs_reach_same_component():
+    graph, _ = make_graph()
+
+    for start in range(graph.n):
+        bfs_nodes = set(bfs(graph, start))
+        dfs_nodes = set(dfs(graph, start))
+        assert bfs_nodes == dfs_nodes
+
+
+def test_bfs_depth_one_visits_start_and_neighbors():
+    graph, _ = make_graph()
+
+    for start in range(graph.n):
+        visited = set(bfs(graph, start, max_depth=1))
+        expected = {start} | set(graph.adj[start])
+
+        assert visited == expected

@@ -1,31 +1,53 @@
-import heapq, random, sys
+
+import heapq
+import random
+import sys
+
 sys.path.insert(0, "src")
 from heap import IndexedMaxHeap
 
-def drain(h):
-    out = []
-    while len(h):
-        out.append(h.pop()[1])
-    return out
 
-n = 200
-keys = [random.random() for _ in range(n)]
+def drain(heap):
+    result = []
+    while len(heap):
+        result.append(heap.pop()[1])
+    return result
 
-# 1. push all, pop order must match heapq
-h = IndexedMaxHeap(n)
-for i, k in enumerate(keys):
-    h.push(i, k)
-assert drain(h) == heapq.nlargest(n, keys)
 
-# 2. O(n) build gives the same order
-assert drain(IndexedMaxHeap.build(keys)) == heapq.nlargest(n, keys)
+def test_push_and_pop_order():
+    rng = random.Random(42)
+    keys = [rng.random() for _ in range(200)]
 
-# 3. update: raise one key, lower another
-h = IndexedMaxHeap.build(keys)
-h.update(5, 10.0)
-assert h.pop() == (5, 10.0)
-h.update(7, -1.0)
-expected = [(-1.0 if i == 7 else k) for i, k in enumerate(keys) if i != 5]
-assert drain(h) == sorted(expected, reverse=True)
+    heap = IndexedMaxHeap(len(keys))
+    for i, key in enumerate(keys):
+        heap.push(i, key)
 
-print("heap tests passed")
+    assert drain(heap) == heapq.nlargest(len(keys), keys)
+
+
+def test_linear_build_and_pop_order():
+    rng = random.Random(42)
+    keys = [rng.random() for _ in range(200)]
+
+    assert drain(IndexedMaxHeap.build(keys)) == heapq.nlargest(
+        len(keys), keys
+    )
+
+
+def test_update_keys():
+    rng = random.Random(42)
+    keys = [rng.random() for _ in range(200)]
+
+    heap = IndexedMaxHeap.build(keys)
+    heap.update(5, 10.0)
+
+    assert heap.pop() == (5, 10.0)
+
+    heap.update(7, -1.0)
+    expected = [
+        -1.0 if i == 7 else key
+        for i, key in enumerate(keys)
+        if i != 5
+    ]
+
+    assert drain(heap) == sorted(expected, reverse=True)
