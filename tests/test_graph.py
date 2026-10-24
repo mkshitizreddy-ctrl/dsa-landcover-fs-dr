@@ -1,11 +1,15 @@
 
 import sys
+import os
 
 import numpy as np
 from scipy.sparse import csr_matrix
 from scipy.sparse.csgraph import connected_components
 
-sys.path.insert(0, "src")
+sys.path.insert(
+    0,
+    os.path.join(os.path.dirname(__file__), "..", "src"),
+)
 
 from graph import build_corr_graph, bfs, dfs, components
 from unionfind import UnionFind
@@ -33,7 +37,7 @@ def make_graph():
     return graph, correlation
 
 
-def test_graph_edges_follow_correlation_threshold():
+def test_graph_edges_follow_absolute_correlation_threshold():
     graph, correlation = make_graph()
 
     assert graph.n == correlation.shape[0]
@@ -41,7 +45,28 @@ def test_graph_edges_follow_correlation_threshold():
     for i in range(graph.n):
         for j in graph.adj[i]:
             assert i in graph.adj[j]
-            assert correlation[i, j] > 0.9
+            assert abs(correlation[i, j]) > 0.9
+
+
+def test_graph_includes_strong_negative_correlations():
+    correlation = np.array([
+        [1.00, -0.96,  0.89,  0.00],
+        [-0.96, 1.00, -0.20,  0.00],
+        [0.89, -0.20,  1.00, -0.95],
+        [0.00,  0.00, -0.95,  1.00],
+    ])
+
+    graph = build_corr_graph(correlation, 0.9)
+
+    assert 1 in graph.adj[0]
+    assert 0 in graph.adj[1]
+    assert 3 in graph.adj[2]
+    assert 2 in graph.adj[3]
+
+    # Correlations below the threshold must not create edges.
+    assert 2 not in graph.adj[0]
+    assert 0 not in graph.adj[2]
+    assert 3 not in graph.adj[0]
 
 
 def test_components_match_scipy_and_union_find():
@@ -74,7 +99,9 @@ def test_components_match_scipy_and_union_find():
     assert count == len(scipy_groups)
 
     our_groups = {
-        frozenset(i for i, label in enumerate(labels) if label == c)
+        frozenset(
+            i for i, label in enumerate(labels) if label == c
+        )
         for c in range(count)
     }
     assert our_groups == scipy_groups
