@@ -1,0 +1,36 @@
+[2026-10-26T16:20:31.769965+00:00] START run_id=20261026T162031768966Z data=.\data\framework_wine_smoke.csv samples=178 features=13 classes=3 seed=42
+[2026-10-26T16:20:31.799206+00:00] RESULT run_id=20261026T162031768966Z method=all_features status=success features=13 accuracy=0.9722222222222222 macro_f1=0.9717813051146384 balanced_accuracy=0.9761904761904763 seconds=0.003921
+[2026-10-26T16:20:31.818222+00:00] RESULT run_id=20261026T162031768966Z method=mi_top_6 status=success features=6 accuracy=0.9722222222222222 macro_f1=0.974320987654321 balanced_accuracy=0.9761904761904763 seconds=0.003751
+[2026-10-26T16:20:31.837265+00:00] RESULT run_id=20261026T162031768966Z method=mi_top_12 status=success features=12 accuracy=1.0 macro_f1=1.0 balanced_accuracy=1.0 seconds=0.004421
+[2026-10-26T16:20:31.837265+00:00] END run_id=20261026T162031768966Z
+[2026-10-26T16:23:39.499703+00:00] START run_id=20261026T162339498717Z data=.\data\framework_wine_smoke.csv samples=178 features=13 classes=3 seed=42
+[2026-10-26T16:23:40.971408+00:00] RESULT run_id=20261026T162339498717Z method=all_features status=success features=13 accuracy=0.9722222222222222 macro_f1=0.9717813051146384 balanced_accuracy=0.9761904761904763 seconds=0.004752
+[2026-10-26T16:23:40.985948+00:00] RESULT run_id=20261026T162339498717Z method=mi_top_6 status=success features=6 accuracy=0.9722222222222222 macro_f1=0.974320987654321 balanced_accuracy=0.9761904761904763 seconds=0.003993
+[2026-10-26T16:23:41.011522+00:00] RESULT run_id=20261026T162339498717Z method=anova_top_6 status=success features=6 accuracy=0.9722222222222222 macro_f1=0.974320987654321 balanced_accuracy=0.9761904761904763 seconds=0.004009
+[2026-10-26T16:23:41.036242+00:00] RESULT run_id=20261026T162339498717Z method=variance_top_6 status=success features=6 accuracy=0.9722222222222222 macro_f1=0.9709618874773139 balanced_accuracy=0.9666666666666667 seconds=0.004084
+[2026-10-26T16:23:41.054199+00:00] RESULT run_id=20261026T162339498717Z method=random_forest_top_6 status=success features=6 accuracy=0.9722222222222222 macro_f1=0.974320987654321 balanced_accuracy=0.9761904761904763 seconds=0.004354
+[2026-10-26T16:23:41.074249+00:00] RESULT run_id=20261026T162339498717Z method=rfe_top_6 status=success features=6 accuracy=0.9722222222222222 macro_f1=0.974320987654321 balanced_accuracy=0.9761904761904763 seconds=0.004225
+[2026-10-26T16:23:41.092786+00:00] RESULT run_id=20261026T162339498717Z method=mi_top_12 status=success features=12 accuracy=1.0 macro_f1=1.0 balanced_accuracy=1.0 seconds=0.004252
+[2026-10-26T16:23:41.114543+00:00] RESULT run_id=20261026T162339498717Z method=anova_top_12 status=success features=12 accuracy=1.0 macro_f1=1.0 balanced_accuracy=1.0 seconds=0.004098
+[2026-10-26T16:23:41.136221+00:00] RESULT run_id=20261026T162339498717Z method=variance_top_12 status=success features=12 accuracy=1.0 macro_f1=1.0 balanced_accuracy=1.0 seconds=0.004601
+[2026-10-26T16:23:41.153624+00:00] RESULT run_id=20261026T162339498717Z method=random_forest_top_12 status=success features=12 accuracy=1.0 macro_f1=1.0 balanced_accuracy=1.0 seconds=0.004334
+[2026-10-26T16:23:41.170963+00:00] RESULT run_id=20261026T162339498717Z method=rfe_top_12 status=success features=12 accuracy=1.0 macro_f1=1.0 balanced_accuracy=1.0 seconds=0.004195
+[2026-10-26T16:23:41.170963+00:00] END run_id=20261026T162339498717Z experiments=11 successes=11 failures=0
+[2026-10-26T16:24:30.331606+00:00] START run_id=20261026T162430331606Z data=.\data\sat.trn samples=4435 features=36 classes=6 seed=42
+[2026-10-26T16:24:35.821346+00:00] RESULT run_id=20261026T162430331606Z method=all_features status=success features=36 accuracy=0.8928974069898534 macro_f1=0.8710587320952882 balanced_accuracy=0.8700263053695937 seconds=0.037903
+[2026-10-26T16:24:35.842880+00:00] RESULT run_id=20261026T162430331606Z method=mi_top_6 status=success features=6 accuracy=0.8421645997745209 macro_f1=0.8064246905635986 balanced_accuracy=0.7991833997174335 seconds=0.011858
+[2026-10-26T16:24:35.864920+00:00] RESULT run_id=20261026T162430331606Z method=anova_top_6 status=success features=6 accuracy=0.8421645997745209 macro_f1=0.8064246905635986 balanced_accuracy=0.7991833997174335 seconds=0.01211
+[2026-10-26T16:24:35.889961+00:00] RESULT run_id=20261026T162430331606Z method=variance_top_6 status=success features=6 accuracy=0.6200676437429538 macro_f1=0.640326306151363 balanced_accuracy=0.6336706140849452 seconds=0.012318
+[2026-10-26T16:24:35.910998+00:00] RESULT run_id=20261026T162430331606Z method=random_forest_top_6 status=success features=6 accuracy=0.8714768883878241 macro_f1=0.8391498094864712 balanced_accuracy=0.8362991729244197 seconds=0.011902
+[2026-10-26T16:24:35.939227+00:00] RESULT run_id=20261026T162430331606Z method=rfe_top_6 status=success features=6 accuracy=0.8680947012401353 macro_f1=0.8355416228833207 balanced_accuracy=0.8318092146246344 seconds=0.0103
+[2026-10-26T16:24:35.972691+00:00] RESULT run_id=20261026T162430331606Z method=mi_top_12 status=success features=12 accuracy=0.8692220969560316 macro_f1=0.8418939008124156 balanced_accuracy=0.8376435341032207 seconds=0.015582
+[2026-10-26T16:24:36.007018+00:00] RESULT run_id=20261026T162430331606Z method=anova_top_12 status=success features=12 accuracy=0.8669673055242391 macro_f1=0.8397277044764256 balanced_accuracy=0.8359372579621044 seconds=0.015746
+[2026-10-26T16:24:36.042903+00:00] RESULT run_id=20261026T162430331606Z method=variance_top_12 status=success features=12 accuracy=0.8207440811724915 macro_f1=0.7973673777995923 balanced_accuracy=0.7896492153766829 seconds=0.016648
+[2026-10-26T16:24:36.078354+00:00] RESULT run_id=20261026T162430331606Z method=random_forest_top_12 status=success features=12 accuracy=0.8793686583990981 macro_f1=0.8497861413349365 balanced_accuracy=0.8446274591997248 seconds=0.015827
+[2026-10-26T16:24:36.106522+00:00] RESULT run_id=20261026T162430331606Z method=rfe_top_12 status=success features=12 accuracy=0.8850056369785795 macro_f1=0.8546387828913474 balanced_accuracy=0.8485389134944006 seconds=0.015078
+[2026-10-26T16:24:36.131576+00:00] RESULT run_id=20261026T162430331606Z method=mi_top_18 status=success features=18 accuracy=0.8838782412626832 macro_f1=0.8536996004212004 balanced_accuracy=0.847127913827839 seconds=0.012516
+[2026-10-26T16:24:36.152624+00:00] RESULT run_id=20261026T162430331606Z method=anova_top_18 status=success features=18 accuracy=0.8838782412626832 macro_f1=0.8565655970805411 balanced_accuracy=0.8537649023164361 seconds=0.01036
+[2026-10-26T16:24:36.172666+00:00] RESULT run_id=20261026T162430331606Z method=variance_top_18 status=success features=18 accuracy=0.8613303269447576 macro_f1=0.8442648681982575 balanced_accuracy=0.8406159813448593 seconds=0.010198
+[2026-10-26T16:24:36.191188+00:00] RESULT run_id=20261026T162430331606Z method=random_forest_top_18 status=success features=18 accuracy=0.8771138669673055 macro_f1=0.8478269020568744 balanced_accuracy=0.8457472464847536 seconds=0.009844
+[2026-10-26T16:24:36.212728+00:00] RESULT run_id=20261026T162430331606Z method=rfe_top_18 status=success features=18 accuracy=0.8816234498308907 macro_f1=0.8519006322756781 balanced_accuracy=0.8473571797054072 seconds=0.010199
+[2026-10-26T16:24:36.212728+00:00] END run_id=20261026T162430331606Z experiments=16 successes=16 failures=0

@@ -1,0 +1,9 @@
+[2026-10-26T17:07:42.789137+00:00] START run_id=20261026T170742789137Z
+dataset=.\data\sat.trn samples=4435 folds=5 seed=42
+PSO epochs=5 population=8; inner validation only; official test not accessed
+[2026-10-26T17:09:29.214670+00:00] fold=1/5 features=17 PSO_macro_f1=0.878264 baseline_macro_f1=0.907691 evaluations=48
+[2026-10-26T17:10:51.004637+00:00] fold=2/5 features=10 PSO_macro_f1=0.841246 baseline_macro_f1=0.870988 evaluations=48
+[2026-10-26T17:12:28.286226+00:00] fold=3/5 features=14 PSO_macro_f1=0.873345 baseline_macro_f1=0.879012 evaluations=48
+[2026-10-26T17:14:06.506171+00:00] fold=4/5 features=12 PSO_macro_f1=0.849348 baseline_macro_f1=0.880045 evaluations=48
+[2026-10-26T17:16:05.966995+00:00] fold=5/5 features=18 PSO_macro_f1=0.867860 baseline_macro_f1=0.884007 evaluations=48
+[2026-10-26T17:16:06.520202+00:00] END run_id=20261026T170742789137Z elapsed_seconds=503.7

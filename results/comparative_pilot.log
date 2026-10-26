@@ -1,0 +1,24 @@
+[2026-10-26T15:57:01.114046+00:00] Starting validation-only comparative pilot.
+[2026-10-26T15:57:01.115045+00:00] Official test file is not loaded or evaluated in this pilot.
+[2026-10-26T15:57:01.174734+00:00] Split: train=3548, validation=887, features=36, seed=42
+[2026-10-26T15:57:01.174734+00:00] Classes in training split: [1, 2, 3, 4, 5, 7]
+[2026-10-26T15:57:01.174734+00:00] Classes in validation split: [1, 2, 3, 4, 5, 7]
+[2026-10-26T15:57:04.720251+00:00] all_features: features=36, macro_f1=0.8711, accuracy=0.8929
+[2026-10-26T15:57:05.214530+00:00] mutual_info_top_6: features=6, macro_f1=0.8064, accuracy=0.8422
+[2026-10-26T15:57:06.650079+00:00] mutual_info_top_12: features=12, macro_f1=0.8229, accuracy=0.8534
+[2026-10-26T15:57:08.597761+00:00] mutual_info_top_18: features=18, macro_f1=0.8498, accuracy=0.8794
+[2026-10-26T15:57:08.739220+00:00] heap_bfs_threshold_0.7: features=2, macro_f1=0.7161, accuracy=0.7768
+[2026-10-26T15:57:09.035500+00:00] heap_bfs_threshold_0.8: features=4, macro_f1=0.8101, accuracy=0.8501
+[2026-10-26T15:57:10.355830+00:00] heap_bfs_threshold_0.9: features=10, macro_f1=0.8413, accuracy=0.8692
+[2026-10-26T15:57:13.116100+00:00] heap_bfs_threshold_0.95: features=25, macro_f1=0.8527, accuracy=0.8760
+[2026-10-26T15:59:16.200063+00:00] PSO completed: features=14, validation_macro_f1=0.8716, best_fitness=0.154480, objective_evaluations=48
+PSO global-best fitness history:
+epoch=1, best_fitness=0.16346746700485568
+epoch=2, best_fitness=0.1544804686150731
+epoch=3, best_fitness=0.1544804686150731
+epoch=4, best_fitness=0.1544804686150731
+epoch=5, best_fitness=0.1544804686150731
+[2026-10-26T15:59:16.201148+00:00] Summary CSV: .\results\comparative_pilot.csv
+[2026-10-26T15:59:16.201148+00:00] Append-only log: .\results\comparative_pilot.log
+[2026-10-26T15:59:16.201148+00:00] Error log: .\results\comparative_pilot_errors.log
+[2026-10-26T15:59:16.201148+00:00] Pilot finished. No official test-set metrics were calculated.

@@ -3,3 +3,5 @@ pandas
 scikit-learn
 scipy
 matplotlib
+mealpy>=3.0.3,<4.0
+pytest

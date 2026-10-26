@@ -1,0 +1,5 @@
+
+[2026-10-26T17:21:05.360423+00:00] START run_id=20261026T171616346399Z
+Training-only search: evaluations=110, failures=0
+[2026-10-26T17:21:05.358302+00:00] FROZEN run_id=20261026T171616346399Z seed=42 epochs=10 population=10 k=5 validation_fraction=0.2 features=[3, 4, 8, 9, 11, 13, 14, 15, 17, 20, 22, 29, 30, 31, 33] fitness=0.14536103; now loading official test
+[2026-10-26T17:21:24.727963+00:00] FINAL rows_written=2 output=.\results\pso_official_test_v1.csv

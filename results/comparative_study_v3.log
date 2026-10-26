@@ -1,0 +1,22 @@
+[2026-10-26T16:29:40.529196+00:00] START run_id=20261026T162940528197Z data=.\data\sat.trn seed=42 validation_fraction=0.2
+[2026-10-26T16:29:45.864456+00:00] RESULT run_id=20261026T162940528197Z method=all_features status=success features=36 macro_f1=0.8710587320952882 seconds=0.044481
+[2026-10-26T16:29:45.889189+00:00] RESULT run_id=20261026T162940528197Z method=mi_top_6 status=success features=6 macro_f1=0.8064246905635986 seconds=0.009671
+[2026-10-26T16:29:45.911213+00:00] RESULT run_id=20261026T162940528197Z method=anova_top_6 status=success features=6 macro_f1=0.8064246905635986 seconds=0.009763
+[2026-10-26T16:29:45.933754+00:00] RESULT run_id=20261026T162940528197Z method=variance_top_6 status=success features=6 macro_f1=0.640326306151363 seconds=0.013952
+[2026-10-26T16:29:45.954782+00:00] RESULT run_id=20261026T162940528197Z method=random_forest_top_6 status=success features=6 macro_f1=0.8391498094864712 seconds=0.012031
+[2026-10-26T16:29:45.987278+00:00] RESULT run_id=20261026T162940528197Z method=rfe_top_6 status=success features=6 macro_f1=0.8355416228833207 seconds=0.010754
+[2026-10-26T16:29:46.022574+00:00] RESULT run_id=20261026T162940528197Z method=mi_top_12 status=success features=12 macro_f1=0.8418939008124156 seconds=0.015955
+[2026-10-26T16:29:46.048246+00:00] RESULT run_id=20261026T162940528197Z method=anova_top_12 status=success features=12 macro_f1=0.8397277044764256 seconds=0.014843
+[2026-10-26T16:29:46.088389+00:00] RESULT run_id=20261026T162940528197Z method=variance_top_12 status=success features=12 macro_f1=0.7973673777995923 seconds=0.016712
+[2026-10-26T16:29:46.123404+00:00] RESULT run_id=20261026T162940528197Z method=random_forest_top_12 status=success features=12 macro_f1=0.8497861413349365 seconds=0.015745
+[2026-10-26T16:29:46.153122+00:00] RESULT run_id=20261026T162940528197Z method=rfe_top_12 status=success features=12 macro_f1=0.8546387828913474 seconds=0.015147
+[2026-10-26T16:29:46.173743+00:00] RESULT run_id=20261026T162940528197Z method=mi_top_18 status=success features=18 macro_f1=0.8536996004212004 seconds=0.011324
+[2026-10-26T16:29:46.202679+00:00] RESULT run_id=20261026T162940528197Z method=anova_top_18 status=success features=18 macro_f1=0.8565655970805411 seconds=0.011985
+[2026-10-26T16:29:46.221703+00:00] RESULT run_id=20261026T162940528197Z method=variance_top_18 status=success features=18 macro_f1=0.8442648681982575 seconds=0.010024
+[2026-10-26T16:29:46.246244+00:00] RESULT run_id=20261026T162940528197Z method=random_forest_top_18 status=success features=18 macro_f1=0.8478269020568744 seconds=0.010545
+[2026-10-26T16:29:46.267270+00:00] RESULT run_id=20261026T162940528197Z method=rfe_top_18 status=success features=18 macro_f1=0.8519006322756781 seconds=0.008467
+[2026-10-26T16:29:46.287298+00:00] RESULT run_id=20261026T162940528197Z method=graph_heap_bfs_t0.7 status=success features=2 macro_f1=0.7243272229458991 seconds=0.010273
+[2026-10-26T16:29:46.313830+00:00] RESULT run_id=20261026T162940528197Z method=graph_heap_bfs_t0.8 status=success features=4 macro_f1=0.8130773287145413 seconds=0.00886
+[2026-10-26T16:29:46.344881+00:00] RESULT run_id=20261026T162940528197Z method=graph_heap_bfs_t0.9 status=success features=10 macro_f1=0.8412979677574995 seconds=0.016976
+[2026-10-26T16:29:46.369420+00:00] RESULT run_id=20261026T162940528197Z method=graph_heap_bfs_t0.95 status=success features=25 macro_f1=0.8526560193856182 seconds=0.013677
+[2026-10-26T16:29:46.370421+00:00] END run_id=20261026T162940528197Z experiments=20 successes=20 failures=0

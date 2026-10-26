@@ -1,0 +1,12 @@
+[2026-10-26T16:13:33.299434+00:00] START run_id=20261026T161333298451Z data=.\data\sat.trn samples=4435 features=36 classes=6 seed=42
+[2026-10-26T16:13:33.668113+00:00] RESULT run_id=20261026T161333298451Z method=all_features status=success features=36 accuracy=0.8928974069898534 macro_f1=0.8710587320952882 balanced_accuracy=0.8700263053695937 seconds=0.039255
+[2026-10-26T16:13:33.688112+00:00] RESULT run_id=20261026T161333298451Z method=mi_top_6 status=success features=6 accuracy=0.8421645997745209 macro_f1=0.8064246905635986 balanced_accuracy=0.7991833997174335 seconds=0.009889
+[2026-10-26T16:13:33.712113+00:00] RESULT run_id=20261026T161333298451Z method=mi_top_12 status=success features=12 accuracy=0.8692220969560316 macro_f1=0.8418939008124156 balanced_accuracy=0.8376435341032207 seconds=0.015581
+[2026-10-26T16:13:33.730113+00:00] RESULT run_id=20261026T161333298451Z method=mi_top_18 status=success features=18 accuracy=0.8838782412626832 macro_f1=0.8536996004212004 balanced_accuracy=0.847127913827839 seconds=0.009642
+[2026-10-26T16:13:33.730113+00:00] END run_id=20261026T161333298451Z
+[2026-10-26T16:14:37.016103+00:00] START run_id=20261026T161437016103Z data=.\data\framework_wine_smoke.csv samples=178 features=13 classes=3 seed=42
+[2026-10-26T16:14:37.041074+00:00] SKIP run_id=20261026T161437016103Z method=mi_top_18: requested 18 features, dataset has 13
+[2026-10-26T16:14:37.046840+00:00] RESULT run_id=20261026T161437016103Z method=all_features status=success features=13 accuracy=0.9722222222222222 macro_f1=0.9717813051146384 balanced_accuracy=0.9761904761904763 seconds=0.004604
+[2026-10-26T16:14:37.074364+00:00] RESULT run_id=20261026T161437016103Z method=mi_top_6 status=success features=6 accuracy=0.9722222222222222 macro_f1=0.974320987654321 balanced_accuracy=0.9761904761904763 seconds=0.004097
+[2026-10-26T16:14:37.096370+00:00] RESULT run_id=20261026T161437016103Z method=mi_top_12 status=success features=12 accuracy=1.0 macro_f1=1.0 balanced_accuracy=1.0 seconds=0.003963
+[2026-10-26T16:14:37.097364+00:00] END run_id=20261026T161437016103Z

@@ -1,0 +1,96 @@
+[2026-10-26T16:37:34.936544+00:00] Run ID: 20261026T163734793749Z
+[2026-10-26T16:37:34.938665+00:00] Dataset: .\data\sat.trn
+[2026-10-26T16:37:34.938665+00:00] Samples: 4435
+[2026-10-26T16:37:34.939680+00:00] Features: 36
+[2026-10-26T16:37:34.939680+00:00] Classes: [1, 2, 3, 4, 5, 7]
+[2026-10-26T16:37:34.939680+00:00] Training rows: 3548
+[2026-10-26T16:37:34.939680+00:00] Validation rows: 887
+[2026-10-26T16:37:34.939680+00:00] PSO epochs: 10
+[2026-10-26T16:37:34.939680+00:00] PSO population: 10
+[2026-10-26T16:37:34.939680+00:00] Objective: 0.9*(1-macro_f1) + 0.1*(selected_features/total_features)
+[2026-10-26T16:41:21.211806+00:00] PSO run completed.
+[2026-10-26T16:41:21.211806+00:00] Selected features: 15 / 36
+[2026-10-26T16:41:21.211806+00:00] Selected zero-based indices: [3, 4, 8, 9, 11, 13, 14, 15, 17, 20, 22, 29, 30, 31, 33]
+[2026-10-26T16:41:21.212810+00:00] Validation macro-F1: 0.884784
+[2026-10-26T16:41:21.212810+00:00] Validation accuracy: 0.903044
+[2026-10-26T16:41:21.212810+00:00] Validation balanced accuracy: 0.881191
+[2026-10-26T16:41:21.212810+00:00] Best observed objective: 0.145361
+[2026-10-26T16:41:21.212810+00:00] Objective evaluations: 110
+[2026-10-26T16:41:21.212810+00:00] Failed objective evaluations: 0
+[2026-10-26T16:41:21.213810+00:00] Elapsed seconds: 226.417
+[2026-10-26T16:41:21.213810+00:00] Summary CSV: .\results\pso_summary_v4.csv
+[2026-10-26T16:41:21.213810+00:00] Evaluation CSV: .\results\pso_objective_evaluations_v4.csv
+[2026-10-26T16:41:21.213810+00:00] Fitness history CSV: .\results\pso_fitness_history_v4.csv
+[2026-10-26T16:41:21.213810+00:00] Official sat.tst was not loaded or evaluated.
+[2026-10-26T16:43:56.308056+00:00] Run ID: 20261026T164356140336Z
+[2026-10-26T16:43:56.309055+00:00] Dataset: .\data\sat.trn
+[2026-10-26T16:43:56.309055+00:00] Samples: 4435
+[2026-10-26T16:43:56.310054+00:00] Features: 36
+[2026-10-26T16:43:56.310054+00:00] Classes: [1, 2, 3, 4, 5, 7]
+[2026-10-26T16:43:56.310054+00:00] Training rows: 3548
+[2026-10-26T16:43:56.310054+00:00] Validation rows: 887
+[2026-10-26T16:43:56.310054+00:00] PSO epochs: 10
+[2026-10-26T16:43:56.311422+00:00] PSO population: 10
+[2026-10-26T16:43:56.311422+00:00] Objective: 0.9*(1-macro_f1) + 0.1*(selected_features/total_features)
+[2026-10-26T16:48:41.661098+00:00] PSO run completed.
+[2026-10-26T16:48:41.661098+00:00] Selected features: 15 / 36
+[2026-10-26T16:48:41.661098+00:00] Selected zero-based indices: [3, 4, 5, 7, 8, 9, 11, 12, 15, 17, 20, 24, 26, 31, 34]
+[2026-10-26T16:48:41.662500+00:00] Validation macro-F1: 0.896104
+[2026-10-26T16:48:41.662500+00:00] Validation accuracy: 0.914318
+[2026-10-26T16:48:41.662500+00:00] Validation balanced accuracy: 0.892362
+[2026-10-26T16:48:41.662500+00:00] Best observed objective: 0.135173
+[2026-10-26T16:48:41.663506+00:00] Objective evaluations: 110
+[2026-10-26T16:48:41.663506+00:00] Failed objective evaluations: 0
+[2026-10-26T16:48:41.663506+00:00] Elapsed seconds: 285.520
+[2026-10-26T16:48:41.663506+00:00] Summary CSV: .\results\pso_summary_v4.csv
+[2026-10-26T16:48:41.664508+00:00] Evaluation CSV: .\results\pso_objective_evaluations_v4.csv
+[2026-10-26T16:48:41.664508+00:00] Fitness history CSV: .\results\pso_fitness_history_v4.csv
+[2026-10-26T16:48:41.664508+00:00] Official sat.tst was not loaded or evaluated.
+[2026-10-26T16:48:41.749329+00:00] Run ID: 20261026T164841665510Z
+[2026-10-26T16:48:41.750320+00:00] Dataset: .\data\sat.trn
+[2026-10-26T16:48:41.750320+00:00] Samples: 4435
+[2026-10-26T16:48:41.751322+00:00] Features: 36
+[2026-10-26T16:48:41.751322+00:00] Classes: [1, 2, 3, 4, 5, 7]
+[2026-10-26T16:48:41.751322+00:00] Training rows: 3548
+[2026-10-26T16:48:41.751322+00:00] Validation rows: 887
+[2026-10-26T16:48:41.752321+00:00] PSO epochs: 10
+[2026-10-26T16:48:41.752321+00:00] PSO population: 10
+[2026-10-26T16:48:41.752321+00:00] Objective: 0.9*(1-macro_f1) + 0.1*(selected_features/total_features)
+[2026-10-26T16:53:26.397709+00:00] PSO run completed.
+[2026-10-26T16:53:26.397709+00:00] Selected features: 15 / 36
+[2026-10-26T16:53:26.398892+00:00] Selected zero-based indices: [0, 1, 6, 8, 10, 12, 13, 14, 15, 21, 22, 24, 27, 28, 35]
+[2026-10-26T16:53:26.398892+00:00] Validation macro-F1: 0.873486
+[2026-10-26T16:53:26.399891+00:00] Validation accuracy: 0.896280
+[2026-10-26T16:53:26.399891+00:00] Validation balanced accuracy: 0.867597
+[2026-10-26T16:53:26.399891+00:00] Best observed objective: 0.155529
+[2026-10-26T16:53:26.399891+00:00] Objective evaluations: 110
+[2026-10-26T16:53:26.400895+00:00] Failed objective evaluations: 0
+[2026-10-26T16:53:26.400895+00:00] Elapsed seconds: 284.732
+[2026-10-26T16:53:26.400895+00:00] Summary CSV: .\results\pso_summary_v4.csv
+[2026-10-26T16:53:26.401891+00:00] Evaluation CSV: .\results\pso_objective_evaluations_v4.csv
+[2026-10-26T16:53:26.401891+00:00] Fitness history CSV: .\results\pso_fitness_history_v4.csv
+[2026-10-26T16:53:26.401891+00:00] Official sat.tst was not loaded or evaluated.
+[2026-10-26T16:53:26.480805+00:00] Run ID: 20261026T165326402892Z
+[2026-10-26T16:53:26.480805+00:00] Dataset: .\data\sat.trn
+[2026-10-26T16:53:26.480805+00:00] Samples: 4435
+[2026-10-26T16:53:26.482102+00:00] Features: 36
+[2026-10-26T16:53:26.482102+00:00] Classes: [1, 2, 3, 4, 5, 7]
+[2026-10-26T16:53:26.482855+00:00] Training rows: 3548
+[2026-10-26T16:53:26.482855+00:00] Validation rows: 887
+[2026-10-26T16:53:26.482855+00:00] PSO epochs: 10
+[2026-10-26T16:53:26.482855+00:00] PSO population: 10
+[2026-10-26T16:53:26.483864+00:00] Objective: 0.9*(1-macro_f1) + 0.1*(selected_features/total_features)
+[2026-10-26T16:58:45.843185+00:00] PSO run completed.
+[2026-10-26T16:58:45.843185+00:00] Selected features: 16 / 36
+[2026-10-26T16:58:45.844691+00:00] Selected zero-based indices: [2, 5, 6, 8, 10, 11, 13, 17, 18, 20, 21, 24, 25, 27, 30, 31]
+[2026-10-26T16:58:45.844691+00:00] Validation macro-F1: 0.898973
+[2026-10-26T16:58:45.844691+00:00] Validation accuracy: 0.919955
+[2026-10-26T16:58:45.844691+00:00] Validation balanced accuracy: 0.891601
+[2026-10-26T16:58:45.846163+00:00] Best observed objective: 0.135369
+[2026-10-26T16:58:45.846163+00:00] Objective evaluations: 110
+[2026-10-26T16:58:45.846163+00:00] Failed objective evaluations: 0
+[2026-10-26T16:58:45.846163+00:00] Elapsed seconds: 319.440
+[2026-10-26T16:58:45.847429+00:00] Summary CSV: .\results\pso_summary_v4.csv
+[2026-10-26T16:58:45.847429+00:00] Evaluation CSV: .\results\pso_objective_evaluations_v4.csv
+[2026-10-26T16:58:45.847429+00:00] Fitness history CSV: .\results\pso_fitness_history_v4.csv
+[2026-10-26T16:58:45.847429+00:00] Official sat.tst was not loaded or evaluated.
