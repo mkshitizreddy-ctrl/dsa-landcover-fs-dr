@@ -1,0 +1,2 @@
+scaler,reduction,k,classifier,chosen_as,cv_accuracy,cv_f1_macro,cv_balanced_accuracy,train_rows,test_accuracy,test_balanced_accuracy,test_f1_macro,fit_seconds,total_seconds
+MinMax,PCA,36,XGB,best overall by accuracy; C2 (XGB) by accuracy,0.6293679563606376,0.2446467466049494,0.2581624256212935,591484,0.7207182415465584,0.2965360173338052,0.25712988863511027,21.1,21.7

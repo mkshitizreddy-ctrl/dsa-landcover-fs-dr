@@ -1,0 +1,12 @@
+              precision    recall  f1-score   support
+
+      Benign       0.52      0.96      0.67     10362
+   DarkNexus       0.12      0.04      0.06      8831
+      Gafgyt       0.00      0.01      0.00       164
+     Generic       0.02      0.01      0.01      1722
+       Mirai       0.75      0.87      0.80    101555
+     Unknown       0.19      0.04      0.07     22721
+
+    accuracy                           0.68    145355
+   macro avg       0.27      0.32      0.27    145355
+weighted avg       0.60      0.68      0.62    145355
