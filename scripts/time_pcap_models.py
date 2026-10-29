@@ -1,4 +1,4 @@
-"""Time each reducer and classifier from the professor's pipeline on samples.
+"""Measure fit and predict time of each reducer and classifier on data samples.
 
 Read-only timing check: no results are written. Run from the repository root:
     python scripts\\time_pcap_models.py
@@ -34,7 +34,7 @@ def main():
            .replace([np.inf, -np.inf], np.nan)
            .to_numpy(dtype=float))                         # Shape [N, 39]
     y = LabelEncoder().fit_transform(df["MalwareFamily"])  # Shape [N]
-    print(f"rows {len(y):,} | features {X.shape[1]} | CPU cores {os.cpu_count()}")
+    print(f"Rows {len(y):,} | features {X.shape[1]} | CPU cores {os.cpu_count()}")
 
     rng = np.random.default_rng(SEED)
     for n in SIZES:

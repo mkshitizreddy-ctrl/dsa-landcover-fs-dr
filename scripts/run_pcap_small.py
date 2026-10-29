@@ -1,19 +1,19 @@
-"""Small lab experiment on pcap.csv: 5 feature columns (3rd to 7th) x {RandomForest, XGBoost}.
+"""Pilot experiment on pcap.csv: 5 feature columns (3rd to 7th) x {RandomForest, XGBoost}.
 
 With --pca N, also compresses ALL usable features into N PCA components (fit on
 training rows only), so feature selection (5 original columns) can be compared
 with dimensionality reduction (5 components) at the same input size.
 
-Professor's instruction: take 5 original feature columns starting from the 3rd
-column (counting from 1) and train XGBoost and Random Forest. By default the
+Design: take 5 original feature columns starting from the 3rd column
+(counting from 1) and train XGBoost and Random Forest. By default the
 same models are also trained on all usable features, as a reference point.
 
-Pipeline (from the professor's sample code): median imputation -> StandardScaler
+Pipeline (course reference pipeline): median imputation -> StandardScaler
 -> model. Dataset fixes:
   * Agent (1 hash) and Tsunami (3 hashes) are dropped: a grouped split cannot
     place them in both training and test.
   * Splits are grouped by Hash, so rows from one malware sample never appear in
-    both training and validation/test (StratifiedGroupKFold, as in his code).
+    both training and validation/test (StratifiedGroupKFold, as in the reference pipeline).
   * 4 CV folds, not 5: Gafgyt has only 4 hashes left after the test holdout.
   * For speed, CV uses at most --max-rows-per-hash rows from each hash. The
     final models are refit on ALL development rows and scored on ALL test rows.
