@@ -1,7 +1,9 @@
-numpy
+numpy<=1.26.0
 pandas
 scikit-learn
 scipy
 matplotlib
 mealpy>=3.0.3,<4.0
+xgboost>=3.0
+joblib
 pytest
