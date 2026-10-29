@@ -1,0 +1,7 @@
+[2026-10-29T05:21:58.509479+00:00] START run_id=20261029T052158509479Z data=C:\Users\mkshi\OneDrive\Desktop\MTech_AI\08_Projects\DSA\dsa-landcover-fs-dr\data\sat.trn N=4435 D=36 classes=6 tasks=['fs', 'threshold', 'components', 'joint'] algos=['PSO', 'GA', 'DE', 'GWO', 'WOA', 'HHO', 'SMA', 'ABC', 'MFO', 'SSA'] folds=5 seeds=[1, 2, 3] budget=200 pop=20 alpha=0.9 smoke=False
+[2026-10-29T05:24:14.591850+00:00] fold 1/5 done: 124 rows, 0 failed, all_features macro_f1=0.9077, mean search macro_f1=0.8900, elapsed 136.1s
+[2026-10-29T05:26:23.880428+00:00] fold 2/5 done: 124 rows, 0 failed, all_features macro_f1=0.8710, mean search macro_f1=0.8503, elapsed 265.4s
+[2026-10-29T05:28:40.429910+00:00] fold 3/5 done: 124 rows, 0 failed, all_features macro_f1=0.8790, mean search macro_f1=0.8607, elapsed 401.9s
+[2026-10-29T05:30:52.146949+00:00] fold 4/5 done: 124 rows, 0 failed, all_features macro_f1=0.8800, mean search macro_f1=0.8444, elapsed 533.6s
+[2026-10-29T05:33:08.773169+00:00] fold 5/5 done: 124 rows, 0 failed, all_features macro_f1=0.8840, mean search macro_f1=0.8557, elapsed 670.3s
+[2026-10-29T05:33:08.773680+00:00] END run_id=20261029T052158509479Z elapsed_seconds=670.3 -> mh_comparison_v1.csv, mh_convergence_v1.csv
