@@ -1,0 +1,235 @@
+PCAP MALWARE FAMILY CLASSIFICATION: RESULTS
+DSA Project, M.Tech AIML, Bennett University
+
+================================================================================
+1. DATA AND PROTOCOL
+================================================================================
+Dataset: pcap.csv (one row = one network packet; Hash = malware sample)
+Rows used: 736,839   (removed 812 rows of Agent and Tsunami: too few hashes for a grouped split)
+Families: Benign, DarkNexus, Gafgyt, Generic, Mirai, Unknown
+Features: 36   (constant columns removed: SMTP, SSH, IRC)
+Development rows: 591,484   Test rows: 145,355   (split grouped by Hash; test set used once)
+Grid sample: 22,467 rows (at most 5 per hash), 4-fold CV grouped by Hash
+Main metric: macro-F1 (every family counts equally); accuracy also reported.
+
+================================================================================
+2. PILOT EXPERIMENT (Random Forest and XGBoost, test set)
+================================================================================
+cols3-7 = 5 original columns (3rd to 7th); all_36 = all features; pca5_of_36 = 5 PCA components
+
+    Inputs  Count Model  Test macro-F1  Test bal. acc.  Test accuracy
+   cols3-7      5    RF          0.276           0.306          0.671
+   cols3-7      5   XGB          0.249           0.292          0.720
+    all_36     36    RF          0.298           0.315          0.656
+    all_36     36   XGB          0.258           0.299          0.721
+pca5_of_36      5    RF          0.287           0.292          0.622
+pca5_of_36      5   XGB          0.252           0.294          0.721
+
+================================================================================
+3. GRID SEARCH (924 configurations, each scored by 4-fold CV)
+================================================================================
+Scalers: Standard, MinMax, Normalizer | Reductions: PCA, KernelPCA, LDA | Classifiers: RF, XGB, DT, SVM
+
+Top 10 configurations by CV macro-F1:
+    Scaler Reduction  k Classifier  CV macro-F1    SD  CV bal. acc.  CV accuracy
+Normalizer       PCA 14         DT        0.269 0.028         0.282        0.571
+Normalizer       PCA 17         DT        0.265 0.034         0.274        0.570
+Normalizer       PCA 22         DT        0.262 0.026         0.274        0.566
+Normalizer       PCA 15         DT        0.261 0.017         0.273        0.571
+Normalizer       PCA  7         DT        0.261 0.020         0.271        0.568
+Normalizer       PCA 33         DT        0.260 0.014         0.270        0.568
+    MinMax KernelPCA  7         DT        0.260 0.019         0.267        0.566
+    MinMax KernelPCA  8         DT        0.259 0.019         0.267        0.563
+Normalizer       PCA 36         DT        0.259 0.016         0.268        0.566
+Normalizer       PCA 18         DT        0.258 0.013         0.268        0.567
+
+Best configuration of each classifier, by CV accuracy (C1 = RF, C2 = XGB, C3 = DT, C4 = SVM):
+    Scaler Reduction  k Classifier  CV macro-F1    SD  CV bal. acc.  CV accuracy
+    MinMax       PCA 36        XGB        0.245 0.007         0.258        0.629
+  Standard       PCA 24        SVM        0.222 0.003         0.254        0.617
+Normalizer       PCA 35         RF        0.245 0.007         0.260        0.606
+Normalizer KernelPCA  1         DT        0.233 0.008         0.256        0.586
+
+Best configuration of each classifier, by CV macro-F1:
+    Scaler Reduction  k Classifier  CV macro-F1    SD  CV bal. acc.  CV accuracy
+Normalizer       PCA 14         DT        0.269 0.028         0.282        0.571
+    MinMax       PCA 12        XGB        0.252 0.023         0.264        0.627
+    MinMax KernelPCA  9         RF        0.249 0.005         0.255        0.578
+  Standard       PCA 24        SVM        0.222 0.003         0.254        0.617
+
+Best configuration of each reduction method, by CV macro-F1:
+    Scaler Reduction  k Classifier  CV macro-F1    SD  CV bal. acc.  CV accuracy
+Normalizer       PCA 14         DT        0.269 0.028         0.282        0.571
+    MinMax KernelPCA  7         DT        0.260 0.019         0.267        0.566
+Normalizer       LDA  3         RF        0.241 0.004         0.242        0.570
+
+Best configuration of each scaler, by CV macro-F1:
+    Scaler Reduction  k Classifier  CV macro-F1    SD  CV bal. acc.  CV accuracy
+Normalizer       PCA 14         DT        0.269 0.028         0.282        0.571
+    MinMax KernelPCA  7         DT        0.260 0.019         0.267        0.566
+  Standard       PCA 24        XGB        0.244 0.006         0.257        0.625
+
+================================================================================
+4. METAHEURISTIC SEARCH OVER THE GRID (20 seeds per algorithm)
+================================================================================
+Best grid configuration: Normalizer + PCA, k = 14, DT (CV macro-F1 0.269)
+Each candidate's score is looked up from the grid. Cost = configurations tried (out of 924).
+found_best and within_001 are % of runs; mean_rank is the true rank of the result (1 = best).
+
+Budget: 100 fitness evaluations
+    Algorithm  Found best %  Within 0.01 %  Mean rank  Configs tried
+          SSA          30.0           55.0      14.75          85.70
+          GWO          20.0           50.0      13.70          85.90
+           GA          20.0           45.0      19.35          49.00
+          WOA          20.0           40.0      27.45          57.20
+           DE          20.0           35.0      29.00          57.10
+Random search          20.0           30.0      14.90          88.95
+          PSO          15.0           50.0      15.35          79.90
+          ABC          15.0           45.0      18.65          81.30
+          HHO          10.0           20.0      27.25          52.60
+          MFO          10.0           20.0      22.40          69.40
+          SMA          10.0           15.0      51.80          38.60
+
+Budget: 200 fitness evaluations
+    Algorithm  Found best %  Within 0.01 %  Mean rank  Configs tried
+          SSA          45.0           70.0      10.70         113.05
+          GWO          40.0           80.0       6.60         145.20
+          PSO          35.0           75.0      11.75         122.20
+           DE          35.0           60.0      19.95          69.15
+          ABC          25.0           85.0       4.55         157.20
+           GA          25.0           60.0      15.70          56.70
+Random search          25.0           55.0       6.15         161.20
+          WOA          25.0           40.0      27.00          74.45
+          MFO          20.0           40.0      14.70         110.90
+          HHO          15.0           30.0      23.50          72.05
+          SMA          10.0           15.0      50.50          44.55
+
+Budget: 400 fitness evaluations
+    Algorithm  Found best %  Within 0.01 %  Mean rank  Configs tried
+          GWO          80.0           85.0       5.55         219.25
+          SSA          65.0           90.0       4.60         164.20
+          PSO          60.0           80.0       7.65         170.20
+          ABC          55.0          100.0       1.95         259.90
+Random search          40.0           75.0       3.90         281.60
+           DE          35.0           60.0      19.95          71.65
+           GA          30.0           65.0      10.70          63.45
+          MFO          30.0           55.0       7.80         160.45
+          WOA          25.0           40.0      25.85          89.15
+          HHO          15.0           35.0      22.10          85.80
+          SMA          10.0           15.0      44.10          54.55
+
+================================================================================
+5. FINAL TEST (refitted on development rows, evaluated once)
+================================================================================
+Classifier     Scaler Reduction  k                                    Selected as  CV acc.  CV macro-F1  Test acc.  Test bal. acc.  Test macro-F1  Train rows
+        DT Normalizer       PCA 14  best overall by macro-F1; C3 (DT) by macro-F1    0.571        0.269      0.648           0.332          0.299      591484
+        RF Normalizer       PCA 35                            C1 (RF) by accuracy    0.606        0.245      0.703           0.322          0.284      591484
+        RF     MinMax KernelPCA  9                            C1 (RF) by macro-F1    0.578        0.249      0.695           0.307          0.279      591484
+        DT Normalizer KernelPCA  1                            C3 (DT) by accuracy    0.586        0.233      0.683           0.321          0.270      591484
+       XGB     MinMax       PCA 36 best overall by accuracy; C2 (XGB) by accuracy    0.629        0.245      0.721           0.297          0.257      591484
+       XGB     MinMax       PCA 12                           C2 (XGB) by macro-F1    0.627        0.252      0.720           0.295          0.254      591484
+       SVM   Standard       PCA 24     C4 (SVM) by accuracy; C4 (SVM) by macro-F1    0.617        0.222      0.720           0.317          0.252       60000
+
+Selected model (highest CV accuracy): XGB on MinMax + PCA, k = 36  ->  test accuracy 0.721, macro-F1 0.257
+Reference: always predicting Mirai gives accuracy 0.699.
+Note: SVM trained on a 60,000-row subsample; KernelPCA fitted on 8,000 rows.
+
+Per-family results on the test set:
+
+--- DT: Normalizer + PCA, k = 14 ---
+              precision    recall  f1-score   support
+
+      Benign       0.54      0.93      0.68     10362
+   DarkNexus       0.14      0.09      0.11      8831
+      Gafgyt       0.00      0.00      0.00       164
+     Generic       0.03      0.02      0.02      1722
+       Mirai       0.76      0.79      0.77    101555
+     Unknown       0.26      0.17      0.20     22721
+
+    accuracy                           0.65    145355
+   macro avg       0.29      0.33      0.30    145355
+weighted avg       0.62      0.65      0.63    145355
+
+--- RF: Normalizer + PCA, k = 35 ---
+              precision    recall  f1-score   support
+
+      Benign       0.55      0.92      0.69     10362
+   DarkNexus       0.17      0.03      0.06      8831
+      Gafgyt       0.00      0.00      0.00       164
+     Generic       0.01      0.00      0.00      1722
+       Mirai       0.76      0.89      0.82    101555
+     Unknown       0.32      0.09      0.14     22721
+
+    accuracy                           0.70    145355
+   macro avg       0.30      0.32      0.28    145355
+weighted avg       0.63      0.70      0.65    145355
+
+--- RF: MinMax + KernelPCA, k = 9 ---
+              precision    recall  f1-score   support
+
+      Benign       0.56      0.83      0.67     10362
+   DarkNexus       0.13      0.02      0.04      8831
+      Gafgyt       0.00      0.00      0.00       164
+     Generic       0.03      0.01      0.01      1722
+       Mirai       0.75      0.89      0.81    101555
+     Unknown       0.28      0.09      0.14     22721
+
+    accuracy                           0.70    145355
+   macro avg       0.29      0.31      0.28    145355
+weighted avg       0.62      0.70      0.64    145355
+
+--- DT: Normalizer + KernelPCA, k = 1 ---
+              precision    recall  f1-score   support
+
+      Benign       0.52      0.96      0.67     10362
+   DarkNexus       0.12      0.04      0.06      8831
+      Gafgyt       0.00      0.01      0.00       164
+     Generic       0.02      0.01      0.01      1722
+       Mirai       0.75      0.87      0.80    101555
+     Unknown       0.19      0.04      0.07     22721
+
+    accuracy                           0.68    145355
+   macro avg       0.27      0.32      0.27    145355
+weighted avg       0.60      0.68      0.62    145355
+
+--- XGB: MinMax + PCA, k = 36 ---
+              precision    recall  f1-score   support
+
+      Benign       0.57      0.81      0.67     10362
+   DarkNexus       0.29      0.01      0.02      8831
+      Gafgyt       0.00      0.00      0.00       164
+     Generic       0.00      0.00      0.00      1722
+       Mirai       0.74      0.95      0.83    101555
+     Unknown       0.24      0.01      0.02     22721
+
+    accuracy                           0.72    145355
+   macro avg       0.31      0.30      0.26    145355
+weighted avg       0.61      0.72      0.63    145355
+
+--- XGB: MinMax + PCA, k = 12 ---
+              precision    recall  f1-score   support
+
+      Benign       0.57      0.81      0.67     10362
+   DarkNexus       0.25      0.00      0.01      8831
+      Gafgyt       0.00      0.00      0.00       164
+     Generic       0.00      0.00      0.00      1722
+       Mirai       0.74      0.95      0.83    101555
+     Unknown       0.23      0.01      0.02     22721
+
+    accuracy                           0.72    145355
+   macro avg       0.30      0.29      0.25    145355
+weighted avg       0.61      0.72      0.63    145355
+
+--- SVM: Standard + PCA, k = 24 ---
+              precision    recall  f1-score   support
+
+      Benign       0.52      0.97      0.68     10362
+   DarkNexus       0.12      0.00      0.00      8831
+      Gafgyt       0.00      0.00      0.00       164
+     Generic       0.00      0.00      0.00      1722
+       Mirai       0.75      0.93      0.83    101555
+     Unknown       0.36      0.00      0.00     22721
+
+    accuracy                           0.72    145355
+   macro avg       0.29      0.32      0.25    145355
+weighted avg       0.63      0.72      0.63    145355
