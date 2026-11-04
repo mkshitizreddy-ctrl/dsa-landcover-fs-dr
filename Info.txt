@@ -123,6 +123,76 @@ PCA from scratch.
   transform(X)               projects standardised data onto the components
   explained_ratio            share of variance of each component
 
+src/landsat_data.py
+-------------------
+Shared loading for the Landsat dataset (data/sat.trn and data/sat.tst).
+  landsat_path(name)          the file's path; downloads it from UCI once if
+                              it is missing
+  load_landsat_file(name)     features (36 columns) and labels of one file
+  load_landsat()              training and official test sets
+  standardize(X_train, ...)   z-scores every array using the training mean
+                              and standard deviation only
+
+
+scripts/run_selection.py
+------------------------
+Compares the selection methods on the Landsat training set at thresholds
+0.7, 0.8, 0.9 and 0.95.
+  compare_selection_methods(X_train, y_train, thresholds)
+      For each threshold: number of graph components, features kept by
+      heap + BFS and by the per-component variant, and whether heap + BFS
+      matches the naive method. Also returns the 5 most relevant features.
+  top_features(scores, n)     the n most relevant features (merge sort)
+  run_selection(thresholds)   loads and standardises the data, then runs
+                              the comparison
+
+
+scripts/run_fs_experiment.py
+----------------------------
+Accuracy of our kNN on the official test set, with all features and with
+heap + BFS selection at each threshold.
+  evaluate_knn(...)           fits our KNN on chosen columns; accuracy,
+                              macro-F1, build and query time
+  sklearn_knn_accuracy(...)   scikit-learn kNN on all features, as a check
+  run_fs_experiment(thresholds, save)
+      Returns the results table and the scikit-learn reference accuracy.
+      save=True writes results/fs_experiment.csv.
+
+
+scripts/run_pca_experiment.py
+-----------------------------
+Accuracy of our kNN on the official test set with six feature settings: raw,
+selection only (t = 0.95, 0.9), PCA only (95% variance), and selection then
+PCA.
+  make_synthetic_data(seed)   a small made-up dataset for a quick check
+  select_columns(...)         heap + BFS selection on training data
+  prepare_features(...)       builds one setting's training and test features
+  evaluate_setting(...)       fits our KNN and measures accuracy and time
+  run_pca_experiment(synthetic, save)
+      synthetic=True runs on the made-up data. save=True writes
+      results/pca_experiment.csv.
+
+
+scripts/run_complexity.py
+-------------------------
+Measures how the run time of graph building, heap + BFS selection and the
+naive method grows with the number of features, on synthetic data with
+groups of four correlated features.
+  median_time(function, ...)  median time over several trials
+  make_data(feature_count, rng)
+  time_one_size(d, ...)       all timings for one number of features, and a
+                              check that heap + BFS and naive agree
+  growth_exponents(results)   k in time ~ d^k, fitted for d >= 200
+  plot_runtimes(results)      log-log runtime plot
+  run_complexity(feature_counts, threshold, trials, save, seed)
+      Returns the table, the exponents and the plot. save=True writes
+      results/complexity.csv and results/complexity.png.
+
+Note: run_fs_experiment and run_pca_experiment use the official test set,
+which earlier analyses had already used, so these numbers are reported as
+project results, not as an untouched test estimate. By default they do not
+overwrite the saved result files.
+
 -----------------------------------------------------------------------
 MALWARE FAMILY STUDY (pcap.csv)
 -----------------------------------------------------------------------

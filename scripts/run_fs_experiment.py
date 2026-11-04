@@ -1,121 +1,54 @@
-
-import os
-import sys
 import time
-import urllib.request
 
 import numpy as np
 import pandas as pd
 from sklearn.metrics import accuracy_score, f1_score
 from sklearn.neighbors import KNeighborsClassifier
 
-# Resolve paths relative to the project, not the terminal's current directory.
-PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-DATA_DIR = os.path.join(PROJECT_ROOT, "data")
-RESULTS_DIR = os.path.join(PROJECT_ROOT, "results")
-
-sys.path.insert(0, os.path.join(PROJECT_ROOT, "src"))
-
-from mi import relevance_scores
 from graph import build_corr_graph
-from selection import select_features
 from knn import KNN
+from landsat_data import ROOT, load_landsat, standardize
+from mi import relevance_scores
+from selection import select_features
+
+THRESHOLDS = (0.7, 0.8, 0.9, 0.95)
+RESULTS_PATH = ROOT / "results" / "fs_experiment.csv"
 
 
-# 1. Load the official train/test split from local files when available.
-BASE_URL = (
-    "https://archive.ics.uci.edu/"
-    "ml/machine-learning-databases/statlog/satimage/"
-)
-
-os.makedirs(DATA_DIR, exist_ok=True)
-
-train_path = os.path.join(DATA_DIR, "sat.trn")
-test_path = os.path.join(DATA_DIR, "sat.tst")
-
-for filename, path in (
-    ("sat.trn", train_path),
-    ("sat.tst", test_path),
-):
-    if os.path.isfile(path):
-        print(f"Using local dataset: {path}")
-    else:
-        url = BASE_URL + filename
-        print(f"Local file missing; downloading {filename} from UCI...")
-        urllib.request.urlretrieve(url, path)
-        print(f"Saved dataset to: {path}")
-
-tr = pd.read_csv(train_path, sep=r"\s+", header=None)
-te = pd.read_csv(test_path, sep=r"\s+", header=None)
-
-Xtr = tr.iloc[:, :36].to_numpy(dtype=float)
-ytr = tr.iloc[:, 36].to_numpy()
-Xte = te.iloc[:, :36].to_numpy(dtype=float)
-yte = te.iloc[:, 36].to_numpy()
-
-print(f"Training samples: {len(ytr)}")
-print(f"Test samples: {len(yte)}")
-
-
-# 2. Standardize using training statistics only.
-mu = Xtr.mean(axis=0)
-sd = Xtr.std(axis=0)
-
-# Avoid division by zero if a feature has no variation.
-sd[sd == 0] = 1.0
-
-Xtr = (Xtr - mu) / sd
-Xte = (Xte - mu) / sd
-
-
-# 3. Calculate relevance and correlations using training data only.
-scores = relevance_scores(Xtr, ytr)
-C = np.abs(np.corrcoef(Xtr.T))
-C = np.triu(C) + np.triu(C, 1).T
-
-
-def run(name, cols):
-    # 4. Fit kNN on the selected training features and evaluate on test data.
-    t0 = time.time()
-    model = KNN(5).fit(Xtr[:, cols], ytr)
-    t1 = time.time()
-
-    pred = model.predict(Xte[:, cols])
-    t2 = time.time()
-
+def evaluate_knn(name, cols, X_train, y_train, X_test, y_test, k=5):
+    start = time.time()
+    model = KNN(k).fit(X_train[:, cols], y_train)
+    built = time.time()
+    pred = model.predict(X_test[:, cols])
+    done = time.time()
     return {
         "setting": name,
         "features": len(cols),
-        "accuracy": round(accuracy_score(yte, pred), 4),
-        "macro_f1": round(f1_score(yte, pred, average="macro"), 4),
-        "build_s": round(t1 - t0, 2),
-        "query_s": round(t2 - t1, 2),
+        "accuracy": round(accuracy_score(y_test, pred), 4),
+        "macro_f1": round(f1_score(y_test, pred, average="macro"), 4),
+        "build_s": round(built - start, 2),
+        "query_s": round(done - built, 2),
     }
 
 
-# 5. Evaluate raw features and feature selection at each threshold.
-rows = [run("raw (all 36)", list(range(36)))]
-
-for threshold in (0.7, 0.8, 0.9, 0.95):
-    graph = build_corr_graph(C, threshold)
-    selected = sorted(select_features(scores, graph))
-    rows.append(run(f"heap+BFS t={threshold}", selected))
+def sklearn_knn_accuracy(X_train, y_train, X_test, y_test, k=5):
+    pred = KNeighborsClassifier(n_neighbors=k).fit(X_train, y_train).predict(X_test)
+    return round(accuracy_score(y_test, pred), 4)
 
 
-# 6. Compare with scikit-learn kNN on all raw features.
-reference = KNeighborsClassifier(n_neighbors=5).fit(Xtr, ytr)
-reference_predictions = reference.predict(Xte)
+def run_fs_experiment(thresholds=THRESHOLDS, save=False):
+    X_train, y_train, X_test, y_test = load_landsat()
+    X_train, X_test = standardize(X_train, X_test)
+    scores = relevance_scores(X_train, y_train)
+    C = np.abs(np.corrcoef(X_train.T))
+    data = (X_train, y_train, X_test, y_test)
 
-print(
-    "sklearn kNN on raw features: accuracy",
-    round(accuracy_score(yte, reference_predictions), 4),
-)
-
-results = pd.DataFrame(rows)
-print(results.to_string(index=False))
-
-os.makedirs(RESULTS_DIR, exist_ok=True)
-output_path = os.path.join(RESULTS_DIR, "fs_experiment.csv")
-results.to_csv(output_path, index=False)
-
-print(f"\nResults saved to: {output_path}")
+    rows = [evaluate_knn(f"raw (all {X_train.shape[1]})", list(range(X_train.shape[1])), *data)]
+    for t in thresholds:
+        selected = sorted(select_features(scores, build_corr_graph(C, t)))
+        rows.append(evaluate_knn(f"heap+BFS t={t}", selected, *data))
+    results = pd.DataFrame(rows)
+    if save:
+        RESULTS_PATH.parent.mkdir(parents=True, exist_ok=True)
+        results.to_csv(RESULTS_PATH, index=False)
+    return results, sklearn_knn_accuracy(*data)
