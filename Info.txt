@@ -4,9 +4,60 @@ DSA PROJECT: GRAPH-BASED FEATURE SELECTION AND DIMENSIONALITY REDUCTION
 This file explains the code: what each file does, what each function does,
 and how the parts are used. The code itself carries no comments.
 
-All functions are called from the Streamlit app. No script takes
-command-line arguments; every setting is a function parameter with a
-default value.
+
+-----------------------------------------------------------------------
+HOW TO USE THE CODE
+-----------------------------------------------------------------------
+
+Every experiment is a function. No script takes command-line arguments;
+every setting is a function parameter with a default value. The Streamlit
+app calls these functions. They can also be called from Python in the
+repository root:
+
+    import sys
+    sys.path[:0] = ["src", "scripts"]
+    from run_selection import run_selection
+    print(run_selection())
+
+Parameters that many functions share:
+  show   receives progress messages. It is print by default; the app
+         passes its own display function.
+  save   whether results are written to results/. Where saving would
+         overwrite results that are already stored, the default is False.
+  seed   random seed, so every run can be repeated exactly.
+
+Two functions use a held-out test set and refuse to run a second time, so
+each test set is used only once: run_pso_final_test (Landsat sat.tst) and
+run_final_test (pcap test hashes).
+
+Tests: python -m pytest tests/ -q   (118 tests)
+
+Folders:
+  src/       the algorithms and the shared modules
+  scripts/   one function per experiment, built on the modules in src/
+  tests/     unit tests; each algorithm is checked against a standard library
+  results/   saved outputs of every experiment
+  archive/   earlier versions, kept for the project history
+  data/      Landsat files and the pcap splits (pcap.csv itself is not stored)
+  report/    written reports
+
+
+-----------------------------------------------------------------------
+HOW THE THREE STUDIES LINK
+-----------------------------------------------------------------------
+
+Study 1 writes the core data structures and algorithms from scratch (heap,
+merge sort, mutual information, graph search, Union-Find, KD-tree, kNN,
+PCA) and uses them to remove redundant features from the Landsat data.
+
+Study 2 uses ten metaheuristics (Mealpy) in two ways: to choose the
+settings of the Study 1 pipeline (the correlation threshold t and the
+number of PCA components k), and to select features directly.
+
+The malware family study applies the same steps (scaling, dimensionality
+reduction, classification and metaheuristic search) to a much larger
+dataset. Every configuration is scored once, so the study can also measure
+how often each metaheuristic finds the true best configuration.
 
 
 -----------------------------------------------------------------------

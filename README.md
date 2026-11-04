@@ -35,7 +35,7 @@ src/
   pcap_grid.py         exhaustive scaler x reduction x k x classifier grid
   pcap_mh_search.py    metaheuristic search over the grid
   pcap_final_test.py   refit and single evaluation on the held-out test set
-tests/                 unit tests (106 in total)
+tests/                 unit tests (118 in total)
 scripts/               experiment runners for studies 1 and 2, pcap pilot and timing
 results/               all experiment outputs (csv, txt, logs)
 report/                written reports
@@ -50,6 +50,20 @@ python -m pytest tests/ -q
 ```
 
 Run every command from the repository root. The experiments were run in a conda environment with Python 3.11, NumPy 1.26.0, scikit-learn 1.9.1, XGBoost 3.2.0 and Mealpy 3.0.3. Mealpy requires NumPy ≤ 1.26.0, so do not upgrade NumPy in this environment.
+
+## Running the code
+
+Every experiment is a Python function with its settings as parameters, so the scripts take no command-line arguments. The Streamlit app calls these functions, and they can also be called from Python in the repository root:
+
+```python
+import sys
+sys.path[:0] = ["src", "scripts"]
+
+from run_selection import run_selection
+print(run_selection())
+```
+
+Functions that report progress accept `show=print` (the app passes its own display function). Functions that would overwrite saved results either take `save=False` by default or refuse to run a second time. `Info.txt` describes every file and function.
 
 ---
 
@@ -96,11 +110,16 @@ These were computed on `sat.tst`, which earlier analyses had already used, so th
 
 Feature selection trades some accuracy for much faster queries; lower thresholds remove more features and lose more accuracy. PCA alone keeps 6 of 36 dimensions at 0.8950 accuracy, and selecting features before PCA gave no further gain.
 
-```
-python scripts/run_selection.py
-python scripts/run_fs_experiment.py
-python scripts/run_complexity.py
-python scripts/run_pca_experiment.py
+```python
+from run_selection import run_selection
+from run_fs_experiment import run_fs_experiment
+from run_complexity import run_complexity
+from run_pca_experiment import run_pca_experiment
+
+run_selection()
+run_fs_experiment()
+run_complexity()
+run_pca_experiment()
 ```
 
 ### PSO studies and leakage audit
@@ -111,11 +130,19 @@ The early PSO runs (V4) scored candidate masks on the same validation fold later
 - **Single frozen evaluation on `sat.tst`** (`scripts/run_pso_final_test_v1.py`, guarded against reruns): PSO 0.8945 accuracy / 0.8805 macro-F1 with 15 of 36 features; all features 0.9045 / 0.8916.
 - **PSO choice of the PCA component count** (`scripts/run_pso_pca_svd.py`, `scripts/compare_pso_vs_pca_threshold.py`): on 3 matched folds PSO-chosen counts scored 0.8788 macro-F1 against 0.8726 for the 95% variance rule. One three-fold run is too small to name a general winner.
 
+```python
+from run_pso_nested_cv_v5 import run_pso_nested_cv
+from run_pso_final_test_v1 import run_pso_final_test
+from run_pso_pca_svd import run_pso_pca_svd
+from compare_pso_vs_pca_threshold import compare_pso_vs_threshold
+
+run_pso_nested_cv(folds=5, seed=42, epochs=5, population=8)
+run_pso_final_test(seed=42, epochs=10, population=10)
+run_pso_pca_svd(folds=3, epochs=5, population=8)
+compare_pso_vs_threshold(folds=3, epochs=5, population=8)
 ```
-python scripts/run_pso_nested_cv_v5.py --folds 5 --seed 42 --epochs 5 --population 8
-python scripts/run_pso_final_test_v1.py --seed 42 --epochs 10 --population 10
-python scripts/run_pso_pca_svd.py --folds 3 --epochs 5 --population 8
-```
+
+`run_pso_final_test` refuses to run again, because the official test file has already been used once.
 
 The full audit and limitations are in `report/DSA_Final_Experimental_Report_v5.md`.
 
@@ -139,10 +166,14 @@ Ten Mealpy algorithms (GA, DE, PSO, GWO, WOA, HHO, ABC, MFO, SSA = Sparrow Searc
 | Joint (*t*, *k*) | Hardest search: best hit rate 27% (PSO), yet PSO's score was within 0.001 of the optimum's |
 | Feature masks | PSO best, 0.868 with about 12 of 36 features |
 
+```python
+from run_mh_comparison import run_mh_comparison
+
+results, curves = run_mh_comparison(quick_check=True, save=False)
+results, curves = run_mh_comparison()
 ```
-python scripts/run_mh_comparison.py --smoke
-python scripts/run_mh_comparison.py
-```
+
+The first call is a short check of the whole pipeline; the second is the full comparison.
 
 Outputs: `results/mh_comparison_v1.csv`, `results/mh_convergence_v1.csv`.
 
@@ -206,16 +237,24 @@ Predicting Mirai for every packet already scores 0.699 accuracy.
 
 ### Reproduce
 
-```
-python src/pcap_data.py --data data/pcap.csv --out data/pcap_splits.npz
-python src/pcap_grid.py --smoke
-python src/pcap_grid.py
-python src/pcap_mh_search.py
-python src/pcap_final_test.py
-python scripts/run_pcap_small.py --pca 5
+```python
+from pcap_data import create_splits
+from pcap_grid import run_grid
+from pcap_mh_search import run_search
+from pcap_final_test import run_final_test
+from run_pcap_small import run_pcap_pilot
+from write_pcap_report import write_pcap_report
+
+create_splits()
+run_grid(quick_check=True)
+summary = run_grid()
+runs, search_summary = run_search()
+test_results = run_final_test()
+run_pcap_pilot(pca=5)
+write_pcap_report()
 ```
 
-The grid run is resumable: if interrupted, run the same command again. The final-test script refuses to run a second time so the test set is used once.
+`run_grid(quick_check=True)` scores one fold with three component counts in a few minutes and writes to its own folder. The full grid is resumable: if it stops, calling it again skips what is done. `run_final_test` refuses to run a second time, so the test set is used once. `write_pcap_report` collects all results into `results/pcap_results.txt`.
 
 Outputs: `results/pcap_small_v2/`, `results/pcap_grid_v1/`, `results/pcap_mh_v1/`, `results/pcap_final_v1/` (including `best_model.joblib`, the configuration with the highest CV accuracy).
 
