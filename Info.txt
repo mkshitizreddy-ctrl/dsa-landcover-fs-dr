@@ -194,6 +194,133 @@ project results, not as an untouched test estimate. By default they do not
 overwrite the saved result files.
 
 -----------------------------------------------------------------------
+SHARED SUPPORT MODULES
+-----------------------------------------------------------------------
+
+src/dataset_loader.py
+---------------------
+Loads any numeric CSV for classification or regression.
+  DatasetConfig    path, delimiter, header row, target column (name or
+                   position), optional feature columns, task type
+  LoadedDataset    features X, target y, feature and target names, class
+                   labels, source path
+  load_dataset(config)
+      Reads the file and checks it: the target exists, features are numeric,
+      there are no missing or infinite values, and a classification target
+      has at least two classes. Stops with a clear error otherwise.
+
+
+src/validation_pipeline.py
+--------------------------
+make_validation_split(dataset, validation_fraction, seed, scale)
+  A stratified train/validation split. The scaler is fitted on training
+  rows only, so validation rows never influence preprocessing. Checks that
+  every class has at least two rows. Returns ValidationData with both parts,
+  the fitted scaler and the row indices.
+
+
+-----------------------------------------------------------------------
+STUDY 2: METAHEURISTIC COMPARISON (Landsat)
+-----------------------------------------------------------------------
+
+Ten Mealpy algorithms are compared on the same problems with the same
+fitness-evaluation budget:
+  GA, DE (evolutionary); PSO, GWO, WOA, HHO, ABC, MFO, SSA (swarm); SMA (bio)
+Mealpy's SSA is the Sparrow Search Algorithm, not the Salp Swarm Algorithm.
+
+Fitness (minimised):
+  f = alpha * (1 - macro-F1 on validation rows) + (1 - alpha) * m / D
+  alpha = 0.9; m = features kept (or components kept); D = all features.
+Only the inner training and validation rows are used; outer folds and the
+official test set never reach the fitness function.
+
+
+src/meta_fs.py
+--------------
+Wrapper feature selection: the algorithm searches a feature mask.
+Each algorithm searches the box [0, 1]^D; a position becomes a mask by
+keeping the features whose value is at least 0.5 (at least one feature is
+always kept). All algorithms share this encoding, so only their search rules
+differ.
+  ALGORITHMS, ALGORITHM_FAMILY   the 10 algorithms and their families
+  MIN_POPULATION = 10            Mealpy's GA crashes below 10
+  build_optimizer(name, epochs, population)
+  decode_mask(position, threshold)
+  FSObjective      the fitness function. It caches each mask's score, so a
+                   mask seen again is not refitted, but every call is still
+                   counted against the budget.
+  FSResult         best mask, fitness, inner F1, calls, distinct masks,
+                   run time and the best fitness per iteration
+  make_optimizer_and_stop(...)
+      With max_evaluations, every algorithm stops after the same number of
+      fitness calls (algorithms make different numbers of calls per
+      iteration, so an iteration budget would be unfair). Mealpy checks the
+      budget at the end of an iteration, so a run can overshoot by at most
+      one iteration; the real count is reported.
+  run_feature_selection(name, X_train, y_train, X_valid, y_valid, ...)
+
+
+src/meta_tune.py
+----------------
+Uses the algorithms to choose the settings of our own pipeline:
+  threshold t    for heap + BFS selection (graph.py, selection.py)
+  components k   for PCA (pca.py)
+Modes: "threshold" (t only), "components" (k only), "joint" (t and k).
+
+k is searched as a fraction q in [0, 1] and decoded as k = ceil(q * m),
+where m is the number of selected features, so k <= m always holds.
+
+The selected subset only changes when t passes one of the observed
+correlation values, so every possible outcome can be listed. grid_search
+does this and gives the true optimum, which the algorithms are scored
+against.
+  decode_k(k_frac, m)
+  PipelineObjective   the fitness function, with three caches (dictionaries):
+                      threshold -> subset, subset -> PCA, (subset, k) -> score.
+                      Our PCA is fitted once per subset with all components;
+                      each k takes the first k.
+      subset_for(t), pca_projection(S), evaluate(S, k, use_pca),
+      decode(position), bounds()
+  TuneResult, make_result(...)
+  run_tuning(name, ..., mode, max_evaluations, ...)   one algorithm run
+  grid_search(..., mode)                              the exact optimum
+
+
+scripts/run_mh_comparison.py
+----------------------------
+The full comparison with nested cross-validation.
+
+Tasks:
+  fs           search a feature mask (meta_fs)
+  threshold    choose t (meta_tune)
+  components   choose k (meta_tune)
+  joint        choose t and k together (meta_tune)
+
+For each outer fold (stratified 5-fold over the training file):
+  1. The outer-training rows are split into inner training and validation
+     rows; the scaler is fitted on inner training rows.
+  2. Every algorithm and seed searches with the same budget. Tuning tasks
+     also run grid_search for the true optimum.
+  3. The result is evaluated on the outer fold. A mask is kept as it is; a
+     chosen t and k are treated as settings, and MI, the graph, heap + BFS
+     and PCA are fitted again on all outer-training rows.
+The official test file is never read.
+
+Functions:
+  check_settings, outer_scores, refit_pipeline, base_row, curve_rows,
+  tuning_details, grid_row, search_row, fold_data, run_fold, fold_message
+      the steps above, one function each
+  run_mh_comparison(data_path, delimiter, header, target, tasks, algorithms,
+                    folds, seeds, split_seed, inner_validation_fraction,
+                    budget, population, alpha, k_neighbors, quick_check,
+                    save, show)
+      Runs the study and returns (results, convergence). Any numeric CSV
+      can be used by changing data_path, delimiter, header and target.
+      quick_check=True uses 2 folds, 1 seed, 3 algorithms and budget 30
+      (about 30 seconds). save=True appends to results/mh_comparison_v1.csv,
+      mh_convergence_v1.csv and mh_comparison_v1.log.
+
+-----------------------------------------------------------------------
 MALWARE FAMILY STUDY (pcap.csv)
 -----------------------------------------------------------------------
 

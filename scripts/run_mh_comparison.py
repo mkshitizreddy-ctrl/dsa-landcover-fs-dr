@@ -1,61 +1,32 @@
-"""Nested-CV comparative study of Mealpy metaheuristics for FS and DR.
-
-Tasks (choose with --tasks):
-  fs          wrapper feature selection: search a binary feature mask (meta_fs)
-  threshold   tune the heap+BFS correlation threshold t (meta_tune)
-  components  tune the PCA component count k (meta_tune)
-  joint       tune (t, k) together (meta_tune)
-
-Protocol per outer fold (stratified K-fold over the whole training file):
-  1. Inner stratified train/validation split of the outer-training rows only;
-     the scaler is fit on inner-train rows (validation_pipeline).
-  2. Every algorithm x seed searches with the SAME fitness-evaluation budget.
-     Tuning tasks also run an exhaustive grid that gives the true optimum.
-  3. The search output is frozen and evaluated on the outer fold:
-       fs         - the selected mask is kept as-is;
-       t / k      - treated as hyperparameters: MI scores, the correlation
-                    graph, heap+BFS and PCA are refit on the outer-training
-                    rows with the chosen t and k (k clipped to |S(t)|).
-     Scaling and the classifier are fit on outer-training rows only.
-The official test file is never read. Outputs are append-only, with a
-schema check, in results/mh_comparison_v1.csv and mh_convergence_v1.csv.
-
-New dataset: pass --data, --delimiter, --header, --target; no code changes.
-Examples (Windows cmd, run from the repository root):
-  python scripts\\run_mh_comparison.py --smoke
-  python scripts\\run_mh_comparison.py --data data\\new.csv --delimiter , --header 0 --target label
-"""
-
-import argparse
 import csv
-import json
-import sys
 import time
 from datetime import datetime, timezone
 from pathlib import Path
 
 import numpy as np
+import pandas as pd
 from sklearn.metrics import accuracy_score, balanced_accuracy_score, f1_score
 from sklearn.model_selection import StratifiedKFold
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.preprocessing import StandardScaler
 
-ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "src"))
-
 from dataset_loader import DatasetConfig, load_dataset
 from graph import build_corr_graph
-from meta_fs import ALGORITHMS, ALGORITHM_FAMILY, MIN_POPULATION, run_feature_selection
+from meta_fs import ALGORITHM_FAMILY, ALGORITHMS, MIN_POPULATION, run_feature_selection
 from meta_tune import grid_search, run_tuning
 from mi import relevance_scores
 from pca import PCA
 from selection import select_features
 from validation_pipeline import make_validation_split
 
+ROOT = Path(__file__).resolve().parents[1]
 RESULTS = ROOT / "results"
 SUMMARY_PATH = RESULTS / "mh_comparison_v1.csv"
 CURVE_PATH = RESULTS / "mh_convergence_v1.csv"
 LOG_PATH = RESULTS / "mh_comparison_v1.log"
+LANDSAT_TRAIN = ROOT / "data" / "sat.trn"
+TASKS = ("fs", "threshold", "components", "joint")
+QUICK_CHECK = {"folds": 2, "seeds": (1,), "budget": 30, "population": 10, "algorithms": ("PSO", "GWO", "GA")}
 
 FIELDS = [
     "timestamp_utc", "run_id", "dataset", "task", "method", "family", "seed",
@@ -66,10 +37,8 @@ FIELDS = [
     "search_seconds", "selected_feature_indices", "status", "error",
 ]
 CURVE_FIELDS = ["run_id", "task", "method", "seed", "outer_fold", "epoch", "best_fitness"]
-TASKS = ("fs", "threshold", "components", "joint")
 
 
-# --------------------------------------------------------------------- io
 def append_rows(path, fields, rows):
     if not rows:
         return
@@ -77,9 +46,8 @@ def append_rows(path, fields, rows):
     exists = path.exists() and path.stat().st_size > 0
     if exists:
         with path.open(newline="", encoding="utf-8-sig") as stream:
-            header = next(csv.reader(stream), None)
-        if header != fields:
-            raise ValueError(f"Refusing to append incompatible schema to {path}")
+            if next(csv.reader(stream), None) != fields:
+                raise ValueError(f"Refusing to append incompatible schema to {path}")
     with path.open("a", newline="", encoding="utf-8") as stream:
         writer = csv.DictWriter(stream, fieldnames=fields)
         if not exists:
@@ -87,53 +55,29 @@ def append_rows(path, fields, rows):
         writer.writerows(rows)
 
 
-def log(message):
-    line = f"[{datetime.now(timezone.utc).isoformat()}] {message}"
-    print(line, flush=True)
-    LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
-    with LOG_PATH.open("a", encoding="utf-8") as stream:
-        stream.write(line + "\n")
+def make_logger(show, save):
+    def log(message):
+        line = f"[{datetime.now(timezone.utc).isoformat()}] {message}"
+        show(line)
+        if save:
+            LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
+            with LOG_PATH.open("a", encoding="utf-8") as stream:
+                stream.write(line + "\n")
+    return log
 
 
-def parse_header(value):
-    return None if value.lower() == "none" else int(value)
+def check_settings(tasks, algorithms, population, budget, folds, y):
+    unknown = [t for t in tasks if t not in TASKS] + [a for a in algorithms if a not in ALGORITHMS]
+    if unknown:
+        raise ValueError(f"Unknown task/algorithm: {unknown}. Tasks {TASKS}; algorithms {list(ALGORITHMS)}")
+    if population < MIN_POPULATION or budget < population or folds < 2:
+        raise ValueError(f"Need population >= {MIN_POPULATION}, budget >= population, folds >= 2")
+    smallest = np.unique(y, return_counts=True)[1].min()
+    if smallest < folds:
+        raise ValueError(f"Smallest class has {smallest} rows; use at most {smallest} folds")
 
 
-def parse_target(value):
-    try:
-        return int(value)
-    except ValueError:
-        return value
-
-
-def parse_args():
-    p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument("--data", default=str(ROOT / "data" / "sat.trn"))
-    p.add_argument("--delimiter", default=r"\s+", help=r"e.g. , or \s+")
-    p.add_argument("--header", default="none", help="row index of the header, or 'none'")
-    p.add_argument("--target", default="-1", help="target column name or integer index")
-    p.add_argument("--tasks", default="fs,threshold,components,joint")
-    p.add_argument("--algorithms", default=",".join(ALGORITHMS))
-    p.add_argument("--folds", type=int, default=5)
-    p.add_argument("--seeds", default="1,2,3", help="search seeds per algorithm and fold")
-    p.add_argument("--split-seed", type=int, default=42, help="seed for outer/inner splits")
-    p.add_argument("--inner-validation-fraction", type=float, default=0.2)
-    p.add_argument("--budget", type=int, default=200, help="fitness evaluations per search")
-    p.add_argument("--population", type=int, default=20)
-    p.add_argument("--alpha", type=float, default=0.9)
-    p.add_argument("--k-neighbors", type=int, default=5)
-    p.add_argument("--smoke", action="store_true",
-                   help="2 folds, 1 seed, 3 algorithms, budget 30: timing check only")
-    args = p.parse_args()
-    if args.smoke:
-        args.folds, args.seeds, args.budget, args.population = 2, "1", 30, 10
-        args.algorithms = "PSO,GWO,GA"
-    return args
-
-
-# ------------------------------------------------------------- evaluation
 def outer_scores(X_tr, y_tr, X_te, y_te, k_neighbors):
-    """Fit kNN on outer-train, score on the outer fold."""
     pred = KNeighborsClassifier(n_neighbors=k_neighbors).fit(X_tr, y_tr).predict(X_te)
     return {
         "accuracy": float(accuracy_score(y_te, pred)),
@@ -143,13 +87,8 @@ def outer_scores(X_tr, y_tr, X_te, y_te, k_neighbors):
 
 
 def refit_pipeline(X_tr, y_tr, X_te, task, threshold, n_components):
-    """Re-run heap+BFS and PCA on outer-train rows with the frozen t / k.
-
-    X_tr, X_te: scaled, Shape [N, D]. Returns transformed (Z_tr, Z_te, S, k).
-    """
-    D = X_tr.shape[1]
     if task == "components":
-        S = list(range(D))
+        S = list(range(X_tr.shape[1]))
     else:
         C = np.nan_to_num(np.abs(np.corrcoef(X_tr, rowvar=False)), nan=0.0)
         S = sorted(select_features(relevance_scores(X_tr, y_tr), build_corr_graph(C, threshold)))
@@ -161,18 +100,12 @@ def refit_pipeline(X_tr, y_tr, X_te, task, threshold, n_components):
 
 
 def base_row(ctx, task, method, seed, fold):
-    return {
-        "timestamp_utc": datetime.now(timezone.utc).isoformat(), "run_id": ctx["run_id"],
-        "dataset": ctx["dataset"], "task": task, "method": method,
-        "family": ALGORITHM_FAMILY.get(method, "baseline" if method == "all_features" else "exhaustive"),
-        "seed": seed, "outer_fold": fold, "n_features_total": ctx["D"],
-        "n_features_used": "", "n_components": "", "threshold": "",
-        "accuracy": "", "macro_f1": "", "balanced_accuracy": "",
-        "inner_best_fitness": "", "inner_best_f1": "", "grid_best_fitness": "",
-        "hit_grid_optimum": "", "evaluations": "", "unique_evaluations": "",
-        "budget": "", "population": "", "alpha": ctx["alpha"], "search_seconds": "",
-        "selected_feature_indices": "", "status": "success", "error": "",
-    }
+    family = ALGORITHM_FAMILY.get(method, "baseline" if method == "all_features" else "exhaustive")
+    row = {f: "" for f in FIELDS}
+    row.update(timestamp_utc=datetime.now(timezone.utc).isoformat(), run_id=ctx["run_id"],
+               dataset=ctx["dataset"], task=task, method=method, family=family, seed=seed,
+               outer_fold=fold, n_features_total=ctx["D"], alpha=ctx["alpha"], status="success")
+    return row
 
 
 def curve_rows(ctx, task, method, seed, fold, curve):
@@ -180,114 +113,123 @@ def curve_rows(ctx, task, method, seed, fold, curve):
              "outer_fold": fold, "epoch": i + 1, "best_fitness": v} for i, v in enumerate(curve)]
 
 
-# ------------------------------------------------------------------- main
-def main():
-    args = parse_args()
-    tasks = [t.strip() for t in args.tasks.split(",") if t.strip()]
-    algos = [a.strip() for a in args.algorithms.split(",") if a.strip()]
-    seeds = [int(s) for s in args.seeds.split(",") if s.strip()]
-    bad = [t for t in tasks if t not in TASKS] + [a for a in algos if a not in ALGORITHMS]
-    if bad:
-        raise ValueError(f"Unknown task/algorithm: {bad}. Tasks {TASKS}; algorithms {list(ALGORITHMS)}")
-    if args.population < MIN_POPULATION or args.budget < args.population or args.folds < 2:
-        raise ValueError(f"Need population >= {MIN_POPULATION}, budget >= population, folds >= 2")
+def tuning_details(task, S, k, result):
+    return {"n_features_used": len(S),
+            "n_components": k if task != "threshold" else "",
+            "threshold": result.threshold if result.threshold is not None else "",
+            "inner_best_fitness": result.best_fitness, "inner_best_f1": result.best_inner_f1,
+            "unique_evaluations": result.unique_evaluations}
 
-    dataset = load_dataset(DatasetConfig(path=args.data, delimiter=args.delimiter,
-                                         header=parse_header(args.header),
-                                         target_column=parse_target(args.target)))
-    X, y = dataset.X, dataset.y                                    # [N, D], [N]
-    _, counts = np.unique(y, return_counts=True)
-    if counts.min() < args.folds:
-        raise ValueError(f"Smallest class has {counts.min()} rows; use --folds <= {counts.min()}")
 
+def grid_row(ctx, task, fold, inner, outer, settings):
+    grid = grid_search(*inner, mode=task, alpha=settings["alpha"], k_neighbors=settings["k_neighbors"])
+    Xo_tr, yo_tr, Xo_te, yo_te = outer
+    Z_tr, Z_te, S, k = refit_pipeline(Xo_tr, yo_tr, Xo_te, task, grid.threshold, grid.n_components)
+    row = base_row(ctx, task, "GRID", "", fold)
+    row.update(**tuning_details(task, S, k, grid), grid_best_fitness=grid.best_fitness, hit_grid_optimum=True,
+               evaluations=grid.calls, search_seconds=grid.runtime_seconds,
+               selected_feature_indices=";".join(map(str, S)),
+               **outer_scores(Z_tr, yo_tr, Z_te, yo_te, settings["k_neighbors"]))
+    return row, grid
+
+
+def search_row(ctx, task, name, seed, fold, inner, outer, grid, settings):
+    Xo_tr, yo_tr, Xo_te, yo_te = outer
+    common = {"population": settings["population"], "seed": seed, "max_evaluations": settings["budget"],
+              "alpha": settings["alpha"], "k_neighbors": settings["k_neighbors"]}
+    row = base_row(ctx, task, name, seed, fold)
+    row.update(budget=settings["budget"], population=settings["population"])
+    try:
+        if task == "fs":
+            result = run_feature_selection(name, *inner, **common)
+            S = result.selected_indices.tolist()
+            scores = outer_scores(Xo_tr[:, S], yo_tr, Xo_te[:, S], yo_te, settings["k_neighbors"])
+            row.update(n_features_used=len(S), inner_best_fitness=result.best_fitness,
+                       inner_best_f1=result.best_inner_f1, unique_evaluations=result.unique_masks)
+        else:
+            result = run_tuning(name, *inner, mode=task, **common)
+            Z_tr, Z_te, S, k = refit_pipeline(Xo_tr, yo_tr, Xo_te, task, result.threshold, result.n_components)
+            scores = outer_scores(Z_tr, yo_tr, Z_te, yo_te, settings["k_neighbors"])
+            row.update(**tuning_details(task, S, k, result), grid_best_fitness=grid.best_fitness,
+                       hit_grid_optimum=bool(abs(result.best_fitness - grid.best_fitness) < 1e-12))
+        row.update(evaluations=result.calls, search_seconds=result.runtime_seconds,
+                   selected_feature_indices=";".join(map(str, S)), **scores)
+        return row, curve_rows(ctx, task, name, seed, fold, result.convergence)
+    except Exception as exc:
+        row.update(status="failed", error=f"{type(exc).__name__}: {exc}"[:300])
+        return row, []
+
+
+def fold_data(dataset, train_idx, test_idx, fold, settings):
+    X, y = dataset.X, dataset.y
+    inner_ds = type(dataset)(X=X[train_idx], y=y[train_idx], feature_names=dataset.feature_names,
+                             target_name=dataset.target_name, class_labels=dataset.class_labels,
+                             source_path=dataset.source_path)
+    split = make_validation_split(inner_ds, validation_fraction=settings["inner_validation_fraction"],
+                                  seed=settings["split_seed"] + fold, scale=True)
+    inner = (split.X_train, split.y_train, split.X_valid, split.y_valid)
+    scaler = StandardScaler().fit(X[train_idx])
+    outer = (scaler.transform(X[train_idx]), y[train_idx], scaler.transform(X[test_idx]), y[test_idx])
+    return inner, outer
+
+
+def run_fold(ctx, fold, inner, outer, tasks, algorithms, seeds, settings):
+    rows, curves = [], []
+    baseline = base_row(ctx, "baseline", "all_features", "", fold)
+    baseline.update(n_features_used=ctx["D"], **outer_scores(*outer, settings["k_neighbors"]))
+    rows.append(baseline)
+    for task in tasks:
+        grid = None
+        if task != "fs":
+            row, grid = grid_row(ctx, task, fold, inner, outer, settings)
+            rows.append(row)
+        for name in algorithms:
+            for seed in seeds:
+                row, curve = search_row(ctx, task, name, seed, fold, inner, outer, grid, settings)
+                rows.append(row)
+                curves += curve
+    return rows, curves
+
+
+def fold_message(fold, folds, rows, elapsed):
+    searched = [r for r in rows if r["status"] == "success" and r["method"] not in ("all_features", "GRID")]
+    failed = sum(r["status"] == "failed" for r in rows)
+    return (f"fold {fold}/{folds} done: {len(rows)} rows, {failed} failed, "
+            f"all_features macro_f1={rows[0]['macro_f1']:.4f}, "
+            f"mean search macro_f1={np.mean([r['macro_f1'] for r in searched]):.4f}, elapsed {elapsed:.1f}s")
+
+
+def run_mh_comparison(data_path=LANDSAT_TRAIN, delimiter=r"\s+", header=None, target=-1, tasks=TASKS,
+                      algorithms=tuple(ALGORITHMS), folds=5, seeds=(1, 2, 3), split_seed=42,
+                      inner_validation_fraction=0.2, budget=200, population=20, alpha=0.9, k_neighbors=5,
+                      quick_check=False, save=True, show=print):
+    if quick_check:
+        folds, seeds, budget = QUICK_CHECK["folds"], QUICK_CHECK["seeds"], QUICK_CHECK["budget"]
+        population, algorithms = QUICK_CHECK["population"], QUICK_CHECK["algorithms"]
+    dataset = load_dataset(DatasetConfig(path=str(data_path), delimiter=delimiter, header=header,
+                                         target_column=target))
+    check_settings(tasks, algorithms, population, budget, folds, dataset.y)
+    settings = {"budget": budget, "population": population, "alpha": alpha, "k_neighbors": k_neighbors,
+                "split_seed": split_seed, "inner_validation_fraction": inner_validation_fraction}
     ctx = {"run_id": datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ"),
-           "dataset": Path(args.data).name, "D": X.shape[1], "alpha": args.alpha}
-    log(f"START run_id={ctx['run_id']} data={args.data} N={len(y)} D={X.shape[1]} "
-        f"classes={len(counts)} tasks={tasks} algos={algos} folds={args.folds} seeds={seeds} "
-        f"budget={args.budget} pop={args.population} alpha={args.alpha} smoke={args.smoke}")
+           "dataset": Path(data_path).name, "D": dataset.X.shape[1], "alpha": alpha}
+    log = make_logger(show, save)
+    log(f"START run_id={ctx['run_id']} data={data_path} N={len(dataset.y)} D={ctx['D']} "
+        f"classes={len(np.unique(dataset.y))} tasks={list(tasks)} algos={list(algorithms)} folds={folds} "
+        f"seeds={list(seeds)} budget={budget} pop={population} alpha={alpha} quick_check={quick_check}")
     started = time.perf_counter()
 
-    outer = StratifiedKFold(n_splits=args.folds, shuffle=True, random_state=args.split_seed)
-    for fold, (tr_idx, te_idx) in enumerate(outer.split(X, y), start=1):
-        inner_ds = type(dataset)(X=X[tr_idx], y=y[tr_idx], feature_names=dataset.feature_names,
-                                 target_name=dataset.target_name, class_labels=dataset.class_labels,
-                                 source_path=dataset.source_path)
-        inner = make_validation_split(inner_ds, validation_fraction=args.inner_validation_fraction,
-                                      seed=args.split_seed + fold, scale=True)
-        inner_args = (inner.X_train, inner.y_train, inner.X_valid, inner.y_valid)
+    all_rows, all_curves = [], []
+    outer_split = StratifiedKFold(n_splits=folds, shuffle=True, random_state=split_seed)
+    for fold, (train_idx, test_idx) in enumerate(outer_split.split(dataset.X, dataset.y), start=1):
+        inner, outer = fold_data(dataset, train_idx, test_idx, fold, settings)
+        rows, curves = run_fold(ctx, fold, inner, outer, tasks, algorithms, seeds, settings)
+        if save:
+            append_rows(SUMMARY_PATH, FIELDS, rows)
+            append_rows(CURVE_PATH, CURVE_FIELDS, curves)
+        all_rows += rows
+        all_curves += curves
+        log(fold_message(fold, folds, rows, time.perf_counter() - started))
 
-        scaler = StandardScaler().fit(X[tr_idx])
-        Xo_tr, Xo_te = scaler.transform(X[tr_idx]), scaler.transform(X[te_idx])
-        yo_tr, yo_te = y[tr_idx], y[te_idx]
-
-        rows, curves = [], []
-        row = base_row(ctx, "baseline", "all_features", "", fold)
-        row.update(n_features_used=ctx["D"], **outer_scores(Xo_tr, yo_tr, Xo_te, yo_te, args.k_neighbors))
-        rows.append(row)
-
-        for task in tasks:
-            grid = None
-            if task != "fs":
-                grid = grid_search(*inner_args, mode=task, alpha=args.alpha, k_neighbors=args.k_neighbors)
-                Z_tr, Z_te, S, k = refit_pipeline(Xo_tr, yo_tr, Xo_te, task, grid.threshold, grid.n_components)
-                row = base_row(ctx, task, "GRID", "", fold)
-                row.update(n_features_used=len(S), n_components=k if task != "threshold" else "",
-                           threshold=grid.threshold if grid.threshold is not None else "",
-                           inner_best_fitness=grid.best_fitness, inner_best_f1=grid.best_inner_f1,
-                           grid_best_fitness=grid.best_fitness, hit_grid_optimum=True,
-                           evaluations=grid.calls, unique_evaluations=grid.unique_evaluations,
-                           search_seconds=grid.runtime_seconds,
-                           selected_feature_indices=";".join(map(str, S)),
-                           **outer_scores(Z_tr, yo_tr, Z_te, yo_te, args.k_neighbors))
-                rows.append(row)
-
-            for name in algos:
-                for seed in seeds:
-                    row = base_row(ctx, task, name, seed, fold)
-                    row.update(budget=args.budget, population=args.population)
-                    try:
-                        if task == "fs":
-                            r = run_feature_selection(name, *inner_args, population=args.population,
-                                                      seed=seed, alpha=args.alpha,
-                                                      k_neighbors=args.k_neighbors,
-                                                      max_evaluations=args.budget)
-                            S = r.selected_indices.tolist()
-                            scores = outer_scores(Xo_tr[:, S], yo_tr, Xo_te[:, S], yo_te, args.k_neighbors)
-                            row.update(n_features_used=len(S), inner_best_fitness=r.best_fitness,
-                                       inner_best_f1=r.best_inner_f1, unique_evaluations=r.unique_masks)
-                        else:
-                            r = run_tuning(name, *inner_args, mode=task, population=args.population,
-                                           seed=seed, max_evaluations=args.budget, alpha=args.alpha,
-                                           k_neighbors=args.k_neighbors)
-                            Z_tr, Z_te, S, k = refit_pipeline(Xo_tr, yo_tr, Xo_te, task,
-                                                              r.threshold, r.n_components)
-                            scores = outer_scores(Z_tr, yo_tr, Z_te, yo_te, args.k_neighbors)
-                            row.update(n_features_used=len(S),
-                                       n_components=k if task != "threshold" else "",
-                                       threshold=r.threshold if r.threshold is not None else "",
-                                       inner_best_fitness=r.best_fitness, inner_best_f1=r.best_inner_f1,
-                                       grid_best_fitness=grid.best_fitness,
-                                       hit_grid_optimum=bool(abs(r.best_fitness - grid.best_fitness) < 1e-12),
-                                       unique_evaluations=r.unique_evaluations)
-                        row.update(evaluations=r.calls, search_seconds=r.runtime_seconds,
-                                   selected_feature_indices=";".join(map(str, S)), **scores)
-                        curves += curve_rows(ctx, task, name, seed, fold, r.convergence)
-                    except Exception as exc:  # keep the study running; record the failure
-                        row.update(status="failed", error=f"{type(exc).__name__}: {exc}"[:300])
-                    rows.append(row)
-
-        append_rows(SUMMARY_PATH, FIELDS, rows)
-        append_rows(CURVE_PATH, CURVE_FIELDS, curves)
-        ok = [r for r in rows if r["status"] == "success" and r["method"] not in ("all_features", "GRID")]
-        failed = sum(r["status"] == "failed" for r in rows)
-        log(f"fold {fold}/{args.folds} done: {len(rows)} rows, {failed} failed, "
-            f"all_features macro_f1={rows[0]['macro_f1']:.4f}, "
-            f"mean search macro_f1={np.mean([r['macro_f1'] for r in ok]):.4f}, "
-            f"elapsed {time.perf_counter() - started:.1f}s")
-
-    log(f"END run_id={ctx['run_id']} elapsed_seconds={time.perf_counter() - started:.1f} "
-        f"-> {SUMMARY_PATH.name}, {CURVE_PATH.name}")
-
-
-if __name__ == "__main__":
-    main()
+    log(f"END run_id={ctx['run_id']} elapsed_seconds={time.perf_counter() - started:.1f}")
+    return pd.DataFrame(all_rows, columns=FIELDS), pd.DataFrame(all_curves, columns=CURVE_FIELDS)

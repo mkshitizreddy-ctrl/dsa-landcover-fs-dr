@@ -1,6 +1,3 @@
-
-"""Configurable loader for numeric machine-learning datasets."""
-
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -30,7 +27,6 @@ class LoadedDataset:
 
 
 def load_dataset(config: DatasetConfig) -> LoadedDataset:
-    """Load a dataset and validate its features and target."""
 
     path = Path(config.path)
     if not path.is_file():
@@ -52,7 +48,6 @@ def load_dataset(config: DatasetConfig) -> LoadedDataset:
     if df.shape[1] < 2:
         raise ValueError("Dataset must contain features and a target column.")
 
-    # Resolve the target by column name or integer position.
     target = config.target_column
     if isinstance(target, int):
         target_index = target if target >= 0 else len(df.columns) + target

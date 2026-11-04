@@ -1,6 +1,3 @@
-
-"""Reproducible, leakage-safe validation splits for numeric datasets."""
-
 from dataclasses import dataclass
 
 import numpy as np
@@ -10,7 +7,6 @@ from sklearn.preprocessing import StandardScaler
 if __package__:
     from .dataset_loader import LoadedDataset
 else:
-    # Scripts that add ``src`` to sys.path import this module directly.
     from dataset_loader import LoadedDataset
 
 
@@ -33,7 +29,6 @@ def make_validation_split(
     seed: int = 42,
     scale: bool = True,
 ) -> ValidationData:
-    """Split a classification dataset and fit preprocessing on train only."""
 
     X = np.asarray(dataset.X, dtype=float)
     y = np.asarray(dataset.y)
@@ -70,13 +65,11 @@ def make_validation_split(
     X_train = X[train_idx].copy()
     X_valid = X[valid_idx].copy()
 
-    # Fit only on training rows. Validation rows never affect the scaler.
     scaler = StandardScaler()
     if scale:
         X_train = scaler.fit_transform(X_train)
         X_valid = scaler.transform(X_valid)
     else:
-        # Still fit for consistent metadata; do not transform either split.
         scaler.fit(X_train)
 
     return ValidationData(
