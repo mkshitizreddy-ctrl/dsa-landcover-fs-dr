@@ -10,12 +10,11 @@ from pcap_data import load_pcap, load_splits, make_splits, save_splits
 
 
 def write_synthetic_csv(path, seed=0):
-    """Same schema as pcap.csv: 6 kept classes x 12 hashes, plus Agent/Tsunami."""
     rng = np.random.default_rng(seed)
     rows = []
     for c, family in enumerate(["Benign", "DarkNexus", "Gafgyt", "Generic", "Mirai", "Unknown"]):
         for h in range(12):
-            for _ in range(int(rng.integers(3, 15))):          # uneven rows per hash
+            for _ in range(int(rng.integers(3, 15))):
                 rows.append({"f1": c + rng.normal(), "f2": rng.normal(), "const": 1.0,
                              "Rate": rng.exponential(), "Hash": f"{family}_{h}",
                              "MalwareFamily": family, "Arch": "arm"})
@@ -61,7 +60,7 @@ def test_sample_respects_cap_and_stays_in_dev(data):
 def test_folds_partition_the_sample_without_hash_leaks(data):
     s = make_splits(data, cv_folds=4)
     valid_all = np.concatenate([va for _, va in s.folds])
-    assert sorted(valid_all.tolist()) == sorted(s.sample_idx.tolist())   # each row validated once
+    assert sorted(valid_all.tolist()) == sorted(s.sample_idx.tolist())
     for tr, va in s.folds:
         assert not set(data.groups[tr]) & set(data.groups[va])
         assert set(data.y[tr]) == set(data.y[va]) == set(range(6))

@@ -1,4 +1,3 @@
-
 import sys
 
 import numpy as np
@@ -17,8 +16,6 @@ def make_test_data():
     rng = np.random.default_rng(42)
     n = 500
 
-    # Six independent signals, each represented by a highly
-    # correlated pair of features.
     base = rng.normal(size=(n, 6))
     X = np.empty((n, 12))
 
@@ -41,8 +38,6 @@ def test_heap_bfs_selection_matches_expected_greedy_selection():
 
     selected = select_features(scores, graph)
 
-    # Each correlated pair is connected. The higher-scoring
-    # member of each pair should be selected.
     expected = [1, 3, 5, 7, 9, 11]
 
     assert set(selected) == set(expected)
@@ -70,8 +65,6 @@ def test_naive_selection_matches_greedy_correlation_rule():
     scores = np.arange(correlation.shape[0], dtype=float)
     selected = select_naive(scores, correlation, threshold)
 
-    # With the generated data, each correlated pair retains
-    # its higher-scoring feature.
     expected = [11, 9, 7, 5, 3, 1]
 
     assert selected == expected

@@ -1,4 +1,3 @@
-
 import sys
 from pathlib import Path
 
@@ -78,7 +77,6 @@ def test_scaler_is_fitted_on_training_rows_only():
     np.testing.assert_allclose(split.scaler.mean_, expected_mean)
     np.testing.assert_allclose(split.scaler.scale_, expected_scale)
 
-    # Standardized training means should be approximately zero.
     np.testing.assert_allclose(
         split.X_train.mean(axis=0), 0.0, atol=1e-10
     )

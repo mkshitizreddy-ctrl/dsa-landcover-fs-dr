@@ -17,15 +17,15 @@ def make_grid():
         rows.append(dict(scaler=s, reduction=r, k=k, classifier=c, accuracy_mean=rng.uniform(0.5, 0.6),
                          f1_macro_mean=rng.uniform(0.2, 0.25), balanced_accuracy_mean=0.3))
     g = pd.DataFrame(rows)
-    g.loc[0, "accuracy_mean"] = 0.9        # Standard PCA 1 RF: best by accuracy
-    g.loc[2, "f1_macro_mean"] = 0.5        # Standard PCA 1 DT: best by macro-F1
+    g.loc[0, "accuracy_mean"] = 0.9
+    g.loc[2, "f1_macro_mean"] = 0.5
     return g
 
 
 def test_select_configs_covers_both_rankings_and_every_classifier():
     picks = select_configs(make_grid())
     keys = {(p["scaler"], p["reduction"], p["k"], p["classifier"]) for p in picks}
-    assert len(keys) == len(picks)                                   # no duplicates
+    assert len(keys) == len(picks)
     by_reason = {p["chosen_as"]: p for p in picks}
     acc_best = next(p for p in picks if "best overall by accuracy" in p["chosen_as"])
     f1_best = next(p for p in picks if "best overall by macro-F1" in p["chosen_as"])
@@ -40,7 +40,7 @@ def make_data(n=400, d=6, seed=1):
     rng = np.random.default_rng(seed)
     y = rng.integers(0, 3, size=n)
     X = rng.normal(size=(n, d)) + y[:, None]
-    X[0, 0] = np.nan                                                 # imputation path
+    X[0, 0] = np.nan
     return X, y
 
 

@@ -11,12 +11,11 @@ from meta_fs import ALGORITHMS, FSObjective, decode_mask, run_feature_selection
 
 
 def make_data(seed=0):
-    """3 informative features + 7 noise features, 3 classes."""
     rng = np.random.default_rng(seed)
-    y = np.repeat(np.arange(3), 80)                           # Shape [240]
-    informative = y[:, None] * 2.0 + rng.normal(size=(240, 3))  # Shape [240, 3]
-    noise = rng.normal(size=(240, 7))                          # Shape [240, 7]
-    X = np.hstack([informative, noise])                        # Shape [240, 10]
+    y = np.repeat(np.arange(3), 80)
+    informative = y[:, None] * 2.0 + rng.normal(size=(240, 3))
+    noise = rng.normal(size=(240, 7))
+    X = np.hstack([informative, noise])
     idx = rng.permutation(240)
     tr, va = idx[:180], idx[180:]
     return X[tr], y[tr], X[va], y[va]
@@ -41,7 +40,7 @@ def test_cache_counts_calls_but_fits_once_per_mask():
     X_tr, y_tr, X_va, y_va = make_data()
     obj = FSObjective(X_tr, y_tr, X_va, y_va)
     a = obj(np.array([0.9, 0.8, 0.1] + [0.0] * 7))
-    b = obj(np.array([0.7, 0.6, 0.4] + [0.2] * 7))  # same decoded mask
+    b = obj(np.array([0.7, 0.6, 0.4] + [0.2] * 7))
     assert a == b and obj.calls == 2 and len(obj.cache) == 1
 
 
@@ -55,7 +54,6 @@ def test_every_algorithm_runs_and_reports_consistently(name):
     assert res.failures == 0
     assert len(res.convergence) == 3
     assert all(b <= a + 1e-12 for a, b in zip(res.convergence, res.convergence[1:]))
-    # Our tracked best must agree with Mealpy's own global best.
     assert res.best_fitness == pytest.approx(res.convergence[-1])
 
 
@@ -78,5 +76,4 @@ def test_evaluation_budget_is_equalised_across_algorithms(name):
     budget, pop = 60, 10
     res = run_feature_selection(name, X_tr, y_tr, X_va, y_va,
                                 population=pop, seed=3, max_evaluations=budget)
-    # Mealpy stops at the end of the epoch that crosses the budget.
     assert budget <= res.calls < budget + 3 * pop

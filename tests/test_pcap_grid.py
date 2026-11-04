@@ -12,8 +12,8 @@ from pcap_grid import (REDUCTIONS, evaluate, fit_reducer, k_values, load_done, s
 
 def make_data(n=300, d=8, seed=0):
     rng = np.random.default_rng(seed)
-    y = rng.integers(0, 3, size=n)                                  # Shape [n]
-    X = rng.normal(size=(n, d)) + y[:, None] * 0.8                  # Shape [n, d]
+    y = rng.integers(0, 3, size=n)
+    X = rng.normal(size=(n, d)) + y[:, None] * 0.8
     return X, y
 
 
@@ -84,5 +84,5 @@ def test_resume_and_summary(tmp_path):
     done = load_done(path)
     assert ("Standard", "PCA", 2, "RF", 2) in done and ("Standard", "PCA", 3, "RF", 1) not in done
     s = summarize(path, n_folds=2, class_names=["A", "B"], out_csv=tmp_path / "s.csv")
-    assert list(s.k) == [2, 1]                                       # ranked by macro-F1
+    assert list(s.k) == [2, 1]
     assert s.iloc[0].f1_macro_mean == pytest.approx(0.715) and "f1_A_mean" in s.columns

@@ -13,13 +13,12 @@ from pcap_mh_search import GridSpace, Tracker, p_random_hit, run_algorithm, run_
 
 
 def make_table(seed=0):
-    """All 924 configurations with random scores and one clear best."""
     rng = np.random.default_rng(seed)
     rows = [dict(scaler=s, reduction=r, k=k, classifier=c, f1_macro_mean=rng.uniform(0.1, 0.25))
             for s, r, c in product(SCALERS, REDUCTIONS, CLASSIFIERS) for k in k_values(r, 36, 6)]
     table = pd.DataFrame(rows)
     table.loc[100, "f1_macro_mean"] = 0.30
-    table.loc[101, "f1_macro_mean"] = 0.295         # within 0.01 of the best
+    table.loc[101, "f1_macro_mean"] = 0.295
     return table
 
 

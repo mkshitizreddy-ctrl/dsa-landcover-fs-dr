@@ -12,13 +12,12 @@ from selection import select_features
 
 
 def make_data(seed=0):
-    """4 informative features, each with a near-duplicate, + 4 noise. D = 12."""
     rng = np.random.default_rng(seed)
-    y = np.repeat(np.arange(3), 80)                             # Shape [240]
-    base = y[:, None] * 1.5 + rng.normal(size=(240, 4))         # Shape [240, 4]
-    dup = base + 0.2 * rng.normal(size=(240, 4))                # highly correlated copies
+    y = np.repeat(np.arange(3), 80)
+    base = y[:, None] * 1.5 + rng.normal(size=(240, 4))
+    dup = base + 0.2 * rng.normal(size=(240, 4))
     noise = rng.normal(size=(240, 4))
-    X = np.hstack([base, dup, noise])                           # Shape [240, 12]
+    X = np.hstack([base, dup, noise])
     idx = rng.permutation(240)
     tr, va = idx[:180], idx[180:]
     return X[tr], y[tr], X[va], y[va]
@@ -40,8 +39,8 @@ def test_cached_subset_matches_direct_heap_bfs():
 
 def test_threshold_extremes():
     obj = PipelineObjective(*make_data(), mode="threshold")
-    assert len(obj.subset_for(1.0)) == obj.D          # no edges: keep everything
-    assert len(obj.subset_for(0.0)) < obj.D           # dense graph: few survive
+    assert len(obj.subset_for(1.0)) == obj.D
+    assert len(obj.subset_for(0.0)) < obj.D
 
 
 def test_custom_pca_gives_same_fitness_as_svd():

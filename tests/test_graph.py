@@ -1,4 +1,3 @@
-
 import sys
 import os
 
@@ -63,7 +62,6 @@ def test_graph_includes_strong_negative_correlations():
     assert 3 in graph.adj[2]
     assert 2 in graph.adj[3]
 
-    # Correlations below the threshold must not create edges.
     assert 2 not in graph.adj[0]
     assert 0 not in graph.adj[2]
     assert 3 not in graph.adj[0]
