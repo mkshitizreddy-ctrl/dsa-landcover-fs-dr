@@ -21,8 +21,8 @@ def test_grid_has_924_configurations():
     n = sum(len(k_values(r, 36, 6)) for r in REDUCTIONS) * 3 * 4
     assert n == 924
     assert k_values("LDA", 36, 6) == [1, 2, 3, 4, 5]
-    assert k_values("PCA", 36, 6, smoke=True) == [2, 10, 36]
-    assert k_values("LDA", 36, 6, smoke=True) == [2, 5]
+    assert k_values("PCA", 36, 6, quick_check=True) == [2, 10, 36]
+    assert k_values("LDA", 36, 6, quick_check=True) == [2, 5]
 
 
 @pytest.mark.parametrize("method", ["PCA", "LDA"])

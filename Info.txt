@@ -1,0 +1,209 @@
+DSA PROJECT: GRAPH-BASED FEATURE SELECTION AND DIMENSIONALITY REDUCTION
+=======================================================================
+
+This file explains the code: what each file does, what each function does,
+and how the parts are used. The code itself carries no comments.
+
+All functions are called from the Streamlit app. No script takes
+command-line arguments; every setting is a function parameter with a
+default value.
+
+
+-----------------------------------------------------------------------
+MALWARE FAMILY STUDY (pcap.csv)
+-----------------------------------------------------------------------
+
+Dataset: data/pcap.csv. One row is one network packet. Packets from the
+same malware sample share a Hash. The label is MalwareFamily.
+
+Order of use:
+  1. src/pcap_data.py        create the splits once (create_splits)
+  2. src/pcap_grid.py        score every configuration (run_grid)
+  3. src/pcap_mh_search.py   search the grid with metaheuristics (run_search)
+  4. src/pcap_final_test.py  evaluate the chosen configurations once (run_final_test)
+
+
+src/pcap_data.py
+----------------
+Prepares the data and decides which rows go where. The row indices are saved
+to data/pcap_splits.npz so every experiment uses exactly the same rows.
+
+Rules:
+  - Hash, Arch and MalwareFamily are not used as features.
+  - Agent (1 hash) and Tsunami (3 hashes) are removed: a split grouped by
+    Hash cannot place them in both training and test.
+  - Infinite values become missing values. Missing values are filled later,
+    inside each model pipeline, using training rows only.
+  - Test set: the first fold of a stratified 5-fold split grouped by Hash
+    (about 20% of rows). It is used only in the final evaluation.
+  - Grid sample: at most 5 rows from each development hash.
+  - Cross-validation: stratified 4-fold split grouped by Hash on the grid
+    sample. Four folds, because Gafgyt has only 4 development hashes.
+  - Constant columns are found on development rows only and dropped.
+
+Functions:
+  load_pcap(path, drop_classes)
+      Reads and cleans the CSV. Returns PcapData: features X, class ids y,
+      Hash groups, class names, and the number of removed rows.
+  check_all_classes(y_part, n_classes, part_name)
+      Stops with an error if a part of the data is missing any class.
+  check_no_shared_groups(groups, rows_a, rows_b, part_name)
+      Stops with an error if a Hash appears on both sides of a split.
+  cap_rows_per_group(rows, groups, cap, seed)
+      Keeps at most `cap` randomly chosen rows from each Hash.
+  make_splits(data, seed, test_folds, cv_folds, rows_per_hash)
+      Builds the test holdout, the grid sample and the CV folds, and checks
+      every part. Returns Splits.
+  save_splits(splits, path) / load_splits(path, n_rows)
+      Save and load the row indices. load_splits checks that the file
+      belongs to the same cleaned table.
+  split_table(data, splits)
+      Rows and hashes per class in each part, as a table.
+  summarize(data, splits)
+      The same information as readable text.
+  create_splits(data_path, splits_path, rows_per_hash, cv_folds, seed)
+      Runs everything above and saves data/pcap_splits.npz.
+
+
+src/pcap_grid.py
+----------------
+Scores every pipeline configuration with 4-fold cross-validation.
+
+Pipeline: median imputation -> scaler -> reduction -> classifier, all fitted
+on training rows only.
+
+Search space:
+  scalers      Standard, MinMax, Normalizer (L2)
+  reductions   PCA (k = 1..36), KernelPCA with RBF kernel (k = 1..36),
+               LDA (k = 1..5, because 6 classes allow at most 5)
+  classifiers  Random Forest (200 trees), XGBoost (200 trees, depth 6),
+               Decision Tree, SVM (RBF kernel)
+  total        3 x (36 + 36 + 5) x 4 = 924 configurations, 3,696 fits
+
+Speed-ups that do not change results:
+  - Each reduction is fitted once per fold and scaler with the largest k.
+    A configuration with k components uses the first k columns. PCA,
+    KernelPCA and LDA order their components, so this equals fitting with k
+    (checked by unit tests).
+  - Decision Tree and SVM use one core each, so the different k values run
+    in parallel. Random Forest and XGBoost already use every core.
+  - KernelPCA keeps an n x n kernel matrix, so it is fitted on at most 8,000
+    training rows. All rows are then projected and the classifier still
+    trains on all of them.
+
+Results are saved after every block. If a run stops, running it again skips
+what is already done.
+
+Outputs (results/pcap_grid_v1/):
+  fold_scores.csv    one row per fit, with per-class F1
+  grid_summary.csv   one row per configuration, mean and SD over folds
+  grid.log           progress log
+
+Functions:
+  make_scaler(name) / make_classifier(name, seed)
+      Create a scaler or classifier from its short name.
+  k_values(method, n_features, n_classes, max_k, quick_check)
+      Component counts tried for one reduction method. quick_check uses only
+      k = 2, 10 and the largest value.
+  fit_reducer(method, Z_train, y_train, n_components, ...)
+      Fits PCA, KernelPCA or LDA.
+  transform(reducer, Z)
+      Applies a fitted reducer in chunks, to keep memory low.
+  evaluate(clf_name, Z_tr, y_tr, Z_va, y_va, class_ids, seed)
+      Fits one classifier and returns accuracy, balanced accuracy, macro-F1
+      and per-class F1. A failure is returned, not raised.
+  score_over_k(...)
+      Runs evaluate for every k, in parallel where possible.
+  load_done(path) / append_rows(path, rows, fields)
+      Resume support: read finished fits and append new ones.
+  summarize(fold_csv, n_folds, class_names, out_csv)
+      Averages the folds into grid_summary.csv, sorted by macro-F1.
+  check_choices, make_logger, result_fields, score_block, block_message
+      Small helpers used by run_grid.
+  run_grid(data_path, splits_path, scalers, reductions, classifiers, max_k,
+           kpca_max_train, jobs, seed, quick_check, out_dir, show)
+      Runs the whole grid and returns the summary table. quick_check=True
+      runs fold 1 with three k values (about 2.5 minutes) and writes to
+      results/pcap_grid_quick_check/. `show` receives progress messages.
+  best_per(summary, column, metric)
+      The best configuration for each scaler, reduction or classifier.
+
+
+src/pcap_mh_search.py
+---------------------
+Searches the 924 configurations with 10 metaheuristics (Mealpy) and with
+random search as a baseline. A candidate's score is looked up from
+grid_summary.csv, so no model is trained and a full run takes seconds.
+
+Encoding: four numbers in [0, 1] become one configuration:
+  scaler      = one of 3 equal parts of [0, 1]
+  reduction   = one of 3 equal parts of [0, 1]
+  k           = ceil(x * largest k), so 1..36, or 1..5 for LDA
+  classifier  = one of 4 equal parts of [0, 1]
+Fitness (minimised) = 1 - CV macro-F1.
+
+Cost is the number of different configurations tried, because in a real
+search each new configuration costs 4 model fits and a repeat costs nothing.
+
+Functions:
+  pick_option(x, options)
+      Maps a number in [0, 1] to one option.
+  GridSpace(table)
+      Holds every configuration's score. decode(position) turns four numbers
+      into a configuration; rank(cfg) gives its true rank (1 = best);
+      count_within(gap) counts configurations within `gap` of the best.
+  Tracker(space, near)
+      The fitness function. It also records the configurations tried, the
+      best score so far, and when the best (or a near-best) was found.
+  run_algorithm(name, space, budget, population, seed, near)
+      One run of one Mealpy algorithm with a fixed number of fitness calls.
+  run_random(space, budget, seed, near)
+      One run of random search with the same budget.
+  p_random_hit(n_total, n_good, n_draws) / random_search_odds(space, near)
+      The exact chance that random search finds the best configuration.
+  summarize_runs(runs)
+      Hit rates, mean rank and configurations tried per algorithm and budget.
+  run_search(grid_path, algorithms, budgets, n_seeds, population, near,
+             save, out_dir, show)
+      Runs every algorithm for every budget and seed. Returns (runs,
+      summary). save=False runs without writing files, for live use in the
+      app. Outputs: results/pcap_mh_v1/runs.csv and a summary file.
+
+
+src/pcap_final_test.py
+----------------------
+Evaluates the chosen configurations once on the held-out test set.
+
+Chosen configurations:
+  - the best overall by CV accuracy (the reference pipeline's rule)
+  - the best of each classifier: C1 (RF), C2 (XGB), C3 (DT), C4 (SVM)
+  - the same choices by CV macro-F1
+Configurations chosen for several reasons are evaluated once.
+
+Each is refitted on all development rows, except:
+  - SVM trains on a stratified 60,000-row subsample (training time grows
+    with the square of the rows).
+  - KernelPCA is fitted on 8,000 rows; every row is then projected.
+
+The function refuses to run if results already exist, so the test set is
+used only once.
+
+Outputs (results/pcap_final_v1/): test_results.csv, a classification report
+and a confusion matrix per configuration, best_configuration.csv, and
+best_model.joblib (the configuration with the highest CV accuracy).
+
+Functions:
+  select_configs(grid)
+      Picks the configurations listed above, with the reasons for each.
+  fit_config(cfg, X_train, y_train, seed, kpca_max_train, svm_max_rows)
+      Fits imputer -> scaler -> reduction -> classifier. Returns the
+      pipeline and the number of training rows.
+  predict_chunked(pipe, X)
+      Predicts in chunks, to keep memory low.
+  config_tag(cfg)
+      A short name such as Normalizer_PCA_k14_DT.
+  save_test_outputs, evaluate_on_test, save_selected_model
+      Helpers that score one configuration and save its files.
+  run_final_test(data_path, splits_path, grid_path, out_dir, svm_max_rows,
+                 kpca_max_train, seed, show)
+      Runs the whole evaluation and returns the results table.

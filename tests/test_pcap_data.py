@@ -84,5 +84,5 @@ def test_save_load_roundtrip_and_row_check(data, tmp_path):
     r = load_splits(path, n_rows=len(data.y))
     assert (r.test_idx == s.test_idx).all() and r.features == s.features
     assert all((a == b).all() for f1, f2 in zip(r.folds, s.folds) for a, b in zip(f1, f2))
-    with pytest.raises(ValueError, match="regenerate"):
+    with pytest.raises(ValueError, match="create the splits again"):
         load_splits(path, n_rows=len(data.y) + 1)

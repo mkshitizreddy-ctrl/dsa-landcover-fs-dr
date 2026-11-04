@@ -1,33 +1,5 @@
-"""Stage 3: metaheuristic search over the pcap pipeline grid, scored by lookup.
-
-The exhaustive grid (pcap_grid.py) already scored all 924 configurations
-(scaler x reduction x k x classifier) with 4-fold CV. Here each Mealpy
-algorithm searches the same space, and a candidate's fitness is LOOKED UP in
-grid_summary.csv instead of retraining models. The grid therefore gives the
-true optimum, and we can measure how quickly each algorithm gets there.
-
-Encoding: a position in [0, 1]^4 decodes to
-  scaler      = floor(x0 * 3)        (Standard, MinMax, Normalizer)
-  reduction   = floor(x1 * 3)        (PCA, KernelPCA, LDA)
-  k           = ceil(x2 * k_max)     (k_max = 36, or 5 for LDA)
-  classifier  = floor(x3 * 4)        (RF, XGB, DT, SVM)
-Fitness (minimised) = 1 - CV macro-F1 of that configuration.
-
-Cost: in a real search every NEW configuration costs 4 model fits, and a
-repeated one costs nothing (cached), so cost = number of distinct
-configurations evaluated. Each run gets the same budget of fitness calls.
-
-Baseline: RANDOM samples uniform positions with the same decoding and budget.
-A metaheuristic is only useful if it beats random search.
-
-Run from the repository root:
-    python src\\pcap_mh_search.py
-"""
-
-import argparse
 import csv
 import math
-import sys
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -36,21 +8,21 @@ import numpy as np
 import pandas as pd
 from mealpy import FloatVar
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
-from meta_fs import ALGORITHM_FAMILY, ALGORITHMS, build_optimizer  # noqa: E402
-from pcap_grid import CLASSIFIERS, REDUCTIONS, SCALERS, k_values  # noqa: E402
+from meta_fs import ALGORITHM_FAMILY, ALGORITHMS, build_optimizer
+from pcap_grid import CLASSIFIERS, GRID_DIR, REDUCTIONS, SCALERS, k_values
 
 ROOT = Path(__file__).resolve().parents[1]
+GRID_SUMMARY_PATH = GRID_DIR / "grid_summary.csv"
+SEARCH_DIR = ROOT / "results" / "pcap_mh_v1"
+RANDOM = "RANDOM"
 CHECKPOINTS = (10, 25, 50, 100, 200, 400)
 
 
-def _pick(x, options):
-    """x in [0, 1] -> one of the options, equal-width cells."""
+def pick_option(x, options):
     return options[min(int(float(x) * len(options)), len(options) - 1)]
 
 
 class GridSpace:
-    """Lookup table over every configuration, with ranks and decoding."""
 
     def __init__(self, table, n_features=36, n_classes=6, metric="f1_macro_mean"):
         self.score = {(r.scaler, r.reduction, int(r.k), r.classifier): float(getattr(r, metric))
@@ -61,53 +33,53 @@ class GridSpace:
         if len(self.score) != expected:
             raise ValueError(f"Grid table has {len(self.score)} configurations, expected {expected}; "
                              "run the full grid first")
-        values = np.sort(np.array(list(self.score.values())))           # ascending
-        self.n = len(values)
-        self.best = float(values[-1])
+        self.sorted_scores = np.sort(np.array(list(self.score.values())))
+        self.n = len(self.sorted_scores)
+        self.best = float(self.sorted_scores[-1])
         self.best_cfg = max(self.score, key=self.score.get)
-        self._sorted = values
 
     def rank(self, cfg):
-        """1 = best; ties share the better rank."""
-        return int(self.n - np.searchsorted(self._sorted, self.score[cfg], side="right") + 1)
+        return int(self.n - np.searchsorted(self.sorted_scores, self.score[cfg], side="right") + 1)
 
     def count_within(self, gap):
-        return int((self._sorted >= self.best - gap - 1e-12).sum())
+        return int((self.sorted_scores >= self.best - gap - 1e-12).sum())
 
     def decode(self, position):
         p = np.asarray(position, dtype=float)
-        red = _pick(p[1], REDUCTIONS)
-        top = self.k_top[red]
+        reduction = pick_option(p[1], REDUCTIONS)
+        top = self.k_top[reduction]
         k = int(min(top, max(1, math.ceil(p[2] * top - 1e-9))))
-        return (_pick(p[0], SCALERS), red, k, _pick(p[3], CLASSIFIERS))
+        return (pick_option(p[0], SCALERS), reduction, k, pick_option(p[3], CLASSIFIERS))
 
 
 class Tracker:
-    """Fitness function that also records the search's progress."""
 
     def __init__(self, space, near=0.01):
         self.space, self.near = space, near
-        self.seen = {}                    # configuration -> score (the cache)
+        self.seen = {}
         self.calls = 0
         self.best_cfg, self.best_score = None, -math.inf
         self.unique_to_best = self.unique_to_near = None
-        self.curve = []                   # best score after each NEW configuration
+        self.curve = []
 
     def __call__(self, position):
         self.calls += 1
         cfg = self.space.decode(position)
         if cfg not in self.seen:
-            s = self.space.score[cfg]
-            self.seen[cfg] = s
-            if s > self.best_score:
-                self.best_score, self.best_cfg = s, cfg
-            self.curve.append(self.best_score)
-            n = len(self.seen)
-            if self.unique_to_near is None and self.best_score >= self.space.best - self.near - 1e-12:
-                self.unique_to_near = n
-            if self.unique_to_best is None and self.best_score >= self.space.best - 1e-12:
-                self.unique_to_best = n
+            self.record_new(cfg)
         return 1.0 - self.seen[cfg]
+
+    def record_new(self, cfg):
+        score = self.space.score[cfg]
+        self.seen[cfg] = score
+        if score > self.best_score:
+            self.best_score, self.best_cfg = score, cfg
+        self.curve.append(self.best_score)
+        tried = len(self.seen)
+        if self.unique_to_near is None and self.best_score >= self.space.best - self.near - 1e-12:
+            self.unique_to_near = tried
+        if self.unique_to_best is None and self.best_score >= self.space.best - 1e-12:
+            self.unique_to_best = tried
 
     def result(self, algorithm, budget, seed, seconds):
         cfg = self.best_cfg
@@ -131,26 +103,34 @@ def run_algorithm(name, space, budget, population, seed, near=0.01):
     problem = {"obj_func": tracker, "bounds": FloatVar(lb=[0.0] * 4, ub=[1.0] * 4),
                "minmax": "min", "log_to": None}
     optimizer = build_optimizer(name, 10_000, population)
-    t0 = time.perf_counter()
+    start = time.perf_counter()
     optimizer.solve(problem, seed=seed, termination={"max_fe": int(budget)})
-    return tracker.result(name, budget, seed, time.perf_counter() - t0)
+    return tracker.result(name, budget, seed, time.perf_counter() - start)
 
 
 def run_random(space, budget, seed, near=0.01):
     tracker = Tracker(space, near)
     rng = np.random.default_rng(seed)
-    t0 = time.perf_counter()
+    start = time.perf_counter()
     for _ in range(budget):
         tracker(rng.random(4))
-    return tracker.result("RANDOM", budget, seed, time.perf_counter() - t0)
+    return tracker.result(RANDOM, budget, seed, time.perf_counter() - start)
 
 
 def p_random_hit(n_total, n_good, n_draws):
-    """Chance that n_draws distinct configurations include at least one good one."""
     p_miss = 1.0
     for i in range(min(n_draws, n_total)):
         p_miss *= max(0.0, (n_total - n_good - i) / (n_total - i))
     return 1.0 - p_miss
+
+
+def random_search_odds(space, near=0.01, draws=(25, 50, 100, 200)):
+    n_near = space.count_within(near)
+    return pd.DataFrame({
+        "configs_tried": list(draws),
+        "finds_best_%": [100 * p_random_hit(space.n, 1, n) for n in draws],
+        "finds_near_best_%": [100 * p_random_hit(space.n, n_near, n) for n in draws],
+    })
 
 
 def append_rows(path, rows):
@@ -161,70 +141,56 @@ def append_rows(path, rows):
             if next(csv.reader(f), None) != fields:
                 raise ValueError(f"Refusing to append a different schema to {path}")
     with open(path, "a", newline="", encoding="utf-8") as f:
-        w = csv.DictWriter(f, fieldnames=fields)
+        writer = csv.DictWriter(f, fieldnames=fields)
         if not exists:
-            w.writeheader()
-        w.writerows(rows)
+            writer.writeheader()
+        writer.writerows(rows)
 
 
-def parse_args():
-    p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument("--grid", default=str(ROOT / "results" / "pcap_grid_v1" / "grid_summary.csv"))
-    p.add_argument("--algorithms", default=",".join(list(ALGORITHMS) + ["RANDOM"]))
-    p.add_argument("--budgets", default="100,200,400", help="fitness calls per run")
-    p.add_argument("--n-seeds", type=int, default=20)
-    p.add_argument("--population", type=int, default=20)
-    p.add_argument("--near", type=float, default=0.01, help="'near-best' = within this macro-F1 of the best")
-    p.add_argument("--out", default=str(ROOT / "results" / "pcap_mh_v1"))
-    return p.parse_args()
+def summarize_runs(runs):
+    groups = pd.DataFrame(runs).groupby(["budget", "algorithm"])
+    summary = pd.DataFrame({
+        "hit_best_%": groups.hit_best.mean() * 100,
+        "hit_near_%": groups.hit_near.mean() * 100,
+        "mean_best_f1": groups.best_f1.mean(),
+        "mean_rank": groups.best_rank.mean(),
+        "median_rank": groups.best_rank.median(),
+        "unique_configs": groups.unique_configs.mean(),
+        "median_unique_to_near": groups.unique_to_near.median(),
+    }).reset_index()
+    return summary.sort_values(["budget", "hit_near_%", "mean_rank"], ascending=[True, False, True])
 
 
-def main():
-    args = parse_args()
-    algos = [a.strip() for a in args.algorithms.split(",") if a.strip()]
-    bad = [a for a in algos if a not in ALGORITHMS and a != "RANDOM"]
-    if bad:
-        raise ValueError(f"Unknown algorithms {bad}")
-    budgets = [int(b) for b in args.budgets.split(",")]
-    seeds = list(range(1, args.n_seeds + 1))
-    out = Path(args.out)
-    out.mkdir(parents=True, exist_ok=True)
+def check_algorithms(algorithms):
+    unknown = [a for a in algorithms if a not in ALGORITHMS and a != RANDOM]
+    if unknown:
+        raise ValueError(f"Unknown algorithms {unknown}")
 
-    space = GridSpace(pd.read_csv(args.grid))
-    n_near = space.count_within(args.near)
-    print(f"Grid: {space.n} configurations | best {space.best:.4f} = {space.best_cfg}")
-    print(f"Configurations within {args.near} of the best: {n_near}")
-    for n in (25, 50, 100, 200):
-        print(f"  random pick of {n:3} distinct configs finds the best: {p_random_hit(space.n, 1, n):.1%}, "
-              f"a near-best one: {p_random_hit(space.n, n_near, n):.1%}")
+
+def run_search(grid_path=GRID_SUMMARY_PATH, algorithms=tuple(ALGORITHMS) + (RANDOM,), budgets=(100, 200, 400),
+               n_seeds=20, population=20, near=0.01, save=True, out_dir=SEARCH_DIR, show=print):
+    check_algorithms(algorithms)
+    space = GridSpace(pd.read_csv(grid_path))
+    show(f"Grid: {space.n} configurations | best {space.best:.4f} = {space.best_cfg} | "
+         f"within {near} of the best: {space.count_within(near)}")
 
     run_id = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-    started, rows = time.perf_counter(), []
+    started, runs = time.perf_counter(), []
     for budget in budgets:
-        for name in algos:
-            for seed in seeds:
-                res = (run_random(space, budget, seed, args.near) if name == "RANDOM"
-                       else run_algorithm(name, space, budget, args.population, seed, args.near))
-                rows.append({"run_id": run_id, "population": args.population, "near": args.near, **res})
-            print(f"budget {budget} {name:6} done | elapsed {time.perf_counter() - started:.0f}s", flush=True)
-    append_rows(out / "runs.csv", rows)
+        for name in algorithms:
+            for seed in range(1, n_seeds + 1):
+                if name == RANDOM:
+                    result = run_random(space, budget, seed, near)
+                else:
+                    result = run_algorithm(name, space, budget, population, seed, near)
+                runs.append({"run_id": run_id, "population": population, "near": near, **result})
+            show(f"budget {budget} {name:6} done | elapsed {time.perf_counter() - started:.0f}s")
 
-    df = pd.DataFrame(rows)
-    g = df.groupby(["budget", "algorithm"])
-    summary = pd.DataFrame({
-        "hit_best_%": g.hit_best.mean() * 100,
-        "hit_near_%": g.hit_near.mean() * 100,
-        "mean_best_f1": g.best_f1.mean(),
-        "mean_rank": g.best_rank.mean(),
-        "median_rank": g.best_rank.median(),
-        "unique_configs": g.unique_configs.mean(),
-        "median_unique_to_near": g.unique_to_near.median(),
-    }).reset_index().sort_values(["budget", "hit_near_%", "mean_rank"], ascending=[True, False, True])
-    summary.to_csv(out / f"summary_{run_id}.csv", index=False)
-    print(f"\nSUMMARY ({len(seeds)} seeds per cell; near = within {args.near} macro-F1 of the best)")
-    print(summary.round(3).to_string(index=False))
-    print(f"\nSaved {out / 'runs.csv'} | total {time.perf_counter() - started:.0f}s")
-
-
-if __name__ == "__main__":
-    main()
+    summary = summarize_runs(runs)
+    if save:
+        out_dir = Path(out_dir)
+        out_dir.mkdir(parents=True, exist_ok=True)
+        append_rows(out_dir / "runs.csv", runs)
+        summary.to_csv(out_dir / f"summary_{run_id}.csv", index=False)
+        show(f"Saved {out_dir / 'runs.csv'}")
+    return pd.DataFrame(runs), summary
