@@ -4,10 +4,7 @@ import numpy as np
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 
-if __package__:
-    from .dataset_loader import LoadedDataset
-else:
-    from dataset_loader import LoadedDataset
+from dataset_loader import LoadedDataset
 
 
 @dataclass

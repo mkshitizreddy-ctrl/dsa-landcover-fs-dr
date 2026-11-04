@@ -193,6 +193,45 @@ which earlier analyses had already used, so these numbers are reported as
 project results, not as an untouched test estimate. By default they do not
 overwrite the saved result files.
 
+scripts/run_comparative_v3.py
+-----------------------------
+Compares our graph-based selection with classical feature rankings on one
+stratified training/validation split of the training file (the official test
+set is not read).
+  Rankings, fitted on training rows only: mutual information (scikit-learn),
+  ANOVA F-score, variance, Random Forest importance, and recursive feature
+  elimination (RFE). Each keeps its top 6, 12 and 18 features.
+  Graph selection: heap + BFS at thresholds 0.7, 0.8, 0.9 and 0.95.
+  Every subset is scored with scikit-learn kNN (k = 5) on the validation rows.
+Functions:
+  rank_classical_features(...)   the five rankings, each checked to be a
+                                 permutation of all features
+  graph_experiments(...)         heap + BFS subsets at each threshold
+  build_experiments(...)         all subsets to evaluate
+  check_subset, check_ranking, check_settings   input checks
+  score_subset(...)              kNN accuracy, macro-F1, balanced accuracy
+  evaluate_one(...)              one subset, never raises; failures recorded
+  run_comparative_v3(data_path, delimiter, header, target,
+                     validation_fraction, seed, k_neighbors, top_ks,
+                     thresholds, save, show)
+      Returns the results table. save=True appends to
+      results/comparative_summary_v3.csv and comparative_study_v3.log.
+
+
+archive/
+--------
+Earlier versions kept for the project history and not maintained. They were
+replaced as follows and may no longer run:
+  archive/scripts/run_comparative_pilot.py, run_comparative_v1.py,
+  run_comparative_v2.py                  -> scripts/run_comparative_v3.py
+  archive/scripts/run_pso_v4.py          -> scripts/run_pso_nested_cv_v5.py
+                                            (the v4 runs scored features on
+                                            the same validation fold they were
+                                            reported on, so they were optimistic)
+  archive/scripts/summarize_pso_v4_stability_v5.py
+                                         a re-check of the v4 results
+  archive/results/                       the outputs of those scripts
+
 -----------------------------------------------------------------------
 SHARED SUPPORT MODULES
 -----------------------------------------------------------------------

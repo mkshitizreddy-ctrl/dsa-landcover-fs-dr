@@ -1,10 +1,15 @@
 
+import sys
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
 import pytest
 
-from src.dataset_loader import DatasetConfig, load_dataset
-from src.validation_pipeline import make_validation_split
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
+
+from dataset_loader import DatasetConfig, load_dataset
+from validation_pipeline import make_validation_split
 
 
 def test_load_landsat_dataset():
