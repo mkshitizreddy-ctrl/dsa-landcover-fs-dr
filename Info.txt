@@ -617,3 +617,38 @@ Functions:
   run_final_test(data_path, splits_path, grid_path, out_dir, svm_max_rows,
                  kpca_max_train, seed, show)
       Runs the whole evaluation and returns the results table.
+
+
+scripts/run_pcap_small.py
+-------------------------
+The pilot experiment: Random Forest and XGBoost on 5 original columns (the
+3rd to 7th: Time_To_Live, Rate and three TCP flags), compared with all 36
+usable features and with 5 PCA components. Uses the same test split as the
+main study (data/pcap_splits.npz). Cross-validation uses at most 30 rows per
+hash with 4 folds grouped by Hash; final models train on all development
+rows and are scored on the test set.
+  make_pipeline(model_name, seed, n_components)
+      median imputation -> StandardScaler -> optional PCA -> classifier
+  pick_columns, feature_sets, cv_folds, cross_validate, save_test_outputs
+  run_pcap_pilot(data_path, splits_path, start_column, n_columns, models,
+                 folds, max_rows_per_hash, include_all, pca, seed, save,
+                 out_dir, show)
+      Returns the summary table. save=True writes results/pcap_small_v2/.
+
+
+scripts/time_pcap_models.py
+---------------------------
+Measures fit and predict time of PCA, KernelPCA and each classifier on
+random samples of 5,000, 20,000 and 50,000 rows. KernelPCA is timed only at
+5,000 rows and SVM up to 20,000 rows, because their cost grows with the
+square of the rows. Used to choose the grid sample size.
+  time_one_size(...), time_pcap_models(data_path, sizes, seed, show)
+
+
+scripts/write_pcap_report.py
+----------------------------
+Collects every saved result of the malware study into one readable text
+file, results/pcap_results.txt. It only reads result files.
+  data_section, pilot_section, grid_section, search_section,
+  final_section    one section each
+  write_pcap_report(out_path)
