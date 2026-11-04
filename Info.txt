@@ -218,6 +218,66 @@ Functions:
       results/comparative_summary_v3.csv and comparative_study_v3.log.
 
 
+PSO STUDIES (Landsat)
+---------------------
+Earlier experiments with Particle Swarm Optimisation (Mealpy PSO). They are
+leakage-safe: the search never sees the rows it is scored on.
+
+scripts/run_pso_nested_cv_v5.py
+  PSO feature selection under nested cross-validation (5 outer folds).
+  For each fold, PSO searches a feature mask on an inner split of the
+  outer-training rows only, using our KNN. The mask is then scored on the
+  untouched outer fold, next to all features.
+  Fitness: 0.9 * (1 - macro-F1) + 0.1 * (features kept / all features).
+    MaskObjective       the fitness function; remembers the best mask
+    search_pso_mask(split, epochs, population, seed, k_neighbors)
+                        one PSO search; shared with the final test below
+    inner_split, outer_rows, stability_rows, check_settings
+    run_pso_nested_cv(data_path, folds, seed, inner_validation_fraction,
+                      epochs, population, k_neighbors, save, show)
+        Returns (fold results, how often each feature was selected).
+        save=True appends to results/pso_nested_cv_v5.csv,
+        pso_feature_stability_v5.csv and pso_nested_cv_v5.log.
+
+scripts/run_pso_final_test_v1.py
+  The single evaluation of PSO selection on the official test set. The mask
+  is chosen on a split of the training file, frozen, and only then is the
+  test file opened. The output file is created before the test is read, so
+  the evaluation can only ever run once. It ran on 26 October 2026; calling
+  run_pso_final_test again stops with an error by design.
+    official_test_used(), saved_results()   check for and read the result
+    run_pso_final_test(seed, validation_fraction, epochs, population,
+                       k_neighbors, show)
+
+scripts/run_pso_pca_svd.py
+  PSO chooses how many PCA components to keep (1 to 36). PCA directions
+  come from an SVD of the training rows. Nested cross-validation (3 outer
+  folds) estimates the result; a final search on a training-only split
+  proposes one component count. The official test set is never opened.
+    fit_svd_projection(X_train, X_valid)   scaling and SVD on training rows
+    ComponentCountSearch   the fitness function: rounds the PSO position to
+                           a whole k, caches each k's macro-F1, and keeps the
+                           best k (the smaller k on a tie)
+    optimize_component_count(...)   one PSO search for k
+    knn_scores, metrics, inner_split, evaluate_fold, check_settings,
+    load_landsat_train, append_log
+    run_pso_pca_svd(folds, seed, epochs, population, validation_fraction,
+                    k_neighbors, n_jobs, log_path, show)
+        Returns (fold results, summary). Every step is appended to
+        results/pso_pca_svd_runs.txt.
+
+scripts/compare_pso_vs_pca_threshold.py
+  Compares PSO's component count with the usual rule "keep 95% of the
+  variance", on the same folds, the same SVD and the same kNN.
+    threshold_count(singular_values, threshold)   components for the rule
+    choose_counts(...)    both counts from the same training rows
+    compare_fold(...)     both methods scored on one outer fold
+    compare_pso_vs_threshold(folds, seed, epochs, population,
+                             validation_fraction, variance_threshold,
+                             k_neighbors, n_jobs, log_path, show)
+        Returns (per-fold table, final counts). Appends to
+        results/pso_vs_threshold_runs.txt.
+
 archive/
 --------
 Earlier versions kept for the project history and not maintained. They were

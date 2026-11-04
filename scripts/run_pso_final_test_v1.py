@@ -1,30 +1,20 @@
-"""Freeze PSO settings on sat.trn, then evaluate once on the official test set.
-
-The official test file is intentionally loaded only after the selected mask
-and all hyperparameters have been fixed using a stratified split of sat.trn.
-This is a separate final evaluation stage, not a tuning script.
-"""
-
-import argparse
 import csv
-import sys
 import time
 from datetime import datetime, timezone
 from pathlib import Path
 
 import numpy as np
-from mealpy import FloatVar, PSO
+import pandas as pd
 from sklearn.metrics import accuracy_score, balanced_accuracy_score, f1_score
-
-ROOT = Path(__file__).resolve().parents[1]
-SRC = ROOT / "src"
-sys.path.insert(0, str(ROOT))
-sys.path.insert(0, str(SRC))
 
 from dataset_loader import DatasetConfig, load_dataset
 from knn import KNN
+from run_pso_nested_cv_v5 import search_pso_mask
 from validation_pipeline import make_validation_split
 
+ROOT = Path(__file__).resolve().parents[1]
+TRAIN_PATH = ROOT / "data" / "sat.trn"
+TEST_PATH = ROOT / "data" / "sat.tst"
 OUT_PATH = ROOT / "results" / "pso_official_test_v1.csv"
 LOG_PATH = ROOT / "results" / "pso_official_test_v1.log"
 FIELDS = [
@@ -36,141 +26,94 @@ FIELDS = [
 ]
 
 
-def append_row(row):
-    OUT_PATH.parent.mkdir(parents=True, exist_ok=True)
-    exists = OUT_PATH.exists() and OUT_PATH.stat().st_size > 0
-    if exists:
-        with OUT_PATH.open(newline="", encoding="utf-8-sig") as stream:
-            if next(csv.reader(stream), None) != FIELDS:
-                raise ValueError(f"Refusing to append incompatible schema to {OUT_PATH}")
-    with OUT_PATH.open("a", newline="", encoding="utf-8") as stream:
-        writer = csv.DictWriter(stream, fieldnames=FIELDS)
-        if not exists:
-            writer.writeheader()
-        writer.writerow(row)
+def load_landsat_file(path):
+    return load_dataset(DatasetConfig(path=str(path), delimiter=r"\s+", header=None, target_column=-1))
 
 
-def parse_args():
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--seed", type=int, default=42)
-    parser.add_argument("--validation-fraction", type=float, default=0.2)
-    parser.add_argument("--epochs", type=int, default=10)
-    parser.add_argument("--population", type=int, default=10)
-    parser.add_argument("--k-neighbors", type=int, default=5)
-    return parser.parse_args()
+def official_test_used():
+    return OUT_PATH.exists() and OUT_PATH.stat().st_size > 0
 
 
-def main():
-    args = parse_args()
-    if OUT_PATH.exists() and OUT_PATH.stat().st_size > 0:
-        raise FileExistsError(
-            f"Final test output already exists; refusing a second official-test evaluation: {OUT_PATH}"
-        )
-    if args.epochs < 1 or args.population < 2 or args.k_neighbors < 1:
-        raise ValueError("epochs >= 1, population >= 2 and k-neighbors >= 1 are required")
-    if not 0 < args.validation_fraction < 1:
-        raise ValueError("validation-fraction must be between 0 and 1")
+def saved_results():
+    return pd.read_csv(OUT_PATH) if official_test_used() else pd.DataFrame(columns=FIELDS)
 
-    run_id = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
-    train_path = ROOT / "data" / "sat.trn"
-    train = load_dataset(DatasetConfig(path=str(train_path), delimiter=r"\s+", header=None, target_column=-1))
-    split = make_validation_split(
-        train, validation_fraction=args.validation_fraction, seed=args.seed, scale=True,
-    )
-    n_features = split.X_train.shape[1]
-    best_fitness = float("inf")
-    best_mask = None
-    evaluations = 0
-    failures = 0
 
-    def objective(position):
-        nonlocal best_fitness, best_mask, evaluations, failures
-        evaluations += 1
-        mask = np.asarray(position, dtype=float) >= 0.5
-        if not mask.any():
-            mask[int(np.argmax(position))] = True
-        try:
-            model = KNN(k=args.k_neighbors).fit(split.X_train[:, mask], split.y_train)
-            prediction = model.predict(split.X_valid[:, mask])
-            macro_f1 = f1_score(split.y_valid, prediction, average="macro", zero_division=0)
-            fitness = 0.9 * (1.0 - macro_f1) + 0.1 * (int(mask.sum()) / n_features)
-            if fitness < best_fitness:
-                best_fitness = float(fitness)
-                best_mask = mask.copy()
-            return float(fitness)
-        except Exception:
-            failures += 1
-            return 1.0
+def check_settings(epochs, population, k_neighbors, validation_fraction):
+    if official_test_used():
+        raise FileExistsError(f"Final test output already exists; refusing a second official-test "
+                              f"evaluation: {OUT_PATH}")
+    if epochs < 1 or population < 2 or k_neighbors < 1:
+        raise ValueError("epochs >= 1, population >= 2 and k_neighbors >= 1 are required")
+    if not 0 < validation_fraction < 1:
+        raise ValueError("validation_fraction must be between 0 and 1")
 
-    problem = {
-        "obj_func": objective,
-        "bounds": FloatVar(lb=[0.0] * n_features, ub=[1.0] * n_features),
-        "minmax": "min",
-        "log_to": None,
-    }
-    started = time.perf_counter()
-    optimizer = PSO.OriginalPSO(epoch=args.epochs, pop_size=args.population)
-    optimizer.solve(problem, seed=args.seed)
-    if best_mask is None:
-        raise RuntimeError("PSO did not produce a successful training-only candidate")
-    selected = np.flatnonzero(best_mask).astype(int)
 
-    # Freeze the chosen mask and preprocessing before opening the official test data.
-    full_scaler = split.scaler.__class__().fit(train.X)
-    X_train = full_scaler.transform(train.X)
-    selected_train_model = KNN(k=args.k_neighbors).fit(X_train[:, selected], train.y)
-    all_train_model = KNN(k=args.k_neighbors).fit(X_train, train.y)
-    freeze_line = (
-        f"[{datetime.now(timezone.utc).isoformat()}] FROZEN run_id={run_id} "
-        f"seed={args.seed} epochs={args.epochs} population={args.population} "
-        f"k={args.k_neighbors} validation_fraction={args.validation_fraction} "
-        f"features={selected.tolist()} fitness={best_fitness:.8f}; now loading official test"
-    )
+def write_log(lines):
     LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
     with LOG_PATH.open("a", encoding="utf-8") as stream:
-        stream.write(f"\n[{datetime.now(timezone.utc).isoformat()}] START run_id={run_id}\n")
-        stream.write(f"Training-only search: evaluations={evaluations}, failures={failures}\n")
-        stream.write(freeze_line + "\n")
+        stream.write("\n".join(lines) + "\n")
 
-    # A header-only file acts as a one-shot guard even if the test stage fails.
+
+def lock_official_test():
     OUT_PATH.parent.mkdir(parents=True, exist_ok=True)
     with OUT_PATH.open("w", newline="", encoding="utf-8") as stream:
         csv.DictWriter(stream, fieldnames=FIELDS).writeheader()
 
-    test_path = ROOT / "data" / "sat.tst"
-    test = load_dataset(DatasetConfig(path=str(test_path), delimiter=r"\s+", header=None, target_column=-1))
+
+def append_rows(rows):
+    with OUT_PATH.open("a", newline="", encoding="utf-8") as stream:
+        csv.DictWriter(stream, fieldnames=FIELDS).writerows(rows)
+
+
+def test_row(method, columns, prediction, test, ctx):
+    is_pso = method == "pso_selected"
+    return {
+        "run_id": ctx["run_id"], "evaluation_stage": "single_final_official_test", "method": method,
+        "training_data": str(TRAIN_PATH), "test_data": str(TEST_PATH), "seed": ctx["seed"],
+        "n_train": ctx["n_train"], "n_test": len(test.y), "n_features_total": ctx["n_features"],
+        "n_features_selected": len(columns), "selected_feature_indices": ";".join(map(str, columns.tolist())),
+        "k_neighbors": ctx["k_neighbors"], "validation_fraction": ctx["validation_fraction"],
+        "epochs": ctx["epochs"] if is_pso else "", "population": ctx["population"] if is_pso else "",
+        "objective_evaluations": ctx["evaluations"] if is_pso else 0,
+        "failed_objective_evaluations": ctx["failures"] if is_pso else 0,
+        "accuracy": float(accuracy_score(test.y, prediction)),
+        "macro_f1": float(f1_score(test.y, prediction, average="macro", zero_division=0)),
+        "balanced_accuracy": float(balanced_accuracy_score(test.y, prediction)),
+        "runtime_seconds": round(time.perf_counter() - ctx["started"], 3), "status": "success",
+    }
+
+
+def run_pso_final_test(seed=42, validation_fraction=0.2, epochs=10, population=10, k_neighbors=5, show=print):
+    check_settings(epochs, population, k_neighbors, validation_fraction)
+    run_id = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
+    train = load_landsat_file(TRAIN_PATH)
+    split = make_validation_split(train, validation_fraction=validation_fraction, seed=seed, scale=True)
+    started = time.perf_counter()
+    search = search_pso_mask(split, epochs, population, seed, k_neighbors)
+    selected = np.flatnonzero(search.best_mask).astype(int)
+    n_features = split.X_train.shape[1]
+
+    full_scaler = split.scaler.__class__().fit(train.X)
+    X_train = full_scaler.transform(train.X)
+    models = {"all_features": (KNN(k=k_neighbors).fit(X_train, train.y), np.arange(n_features)),
+              "pso_selected": (KNN(k=k_neighbors).fit(X_train[:, selected], train.y), selected)}
+    now = datetime.now(timezone.utc).isoformat()
+    write_log([f"\n[{now}] START run_id={run_id}",
+               f"Training-only search: evaluations={search.evaluations}, failures={search.failures}",
+               f"[{now}] FROZEN run_id={run_id} seed={seed} epochs={epochs} population={population} "
+               f"k={k_neighbors} validation_fraction={validation_fraction} features={selected.tolist()} "
+               f"fitness={search.best_fitness:.8f}; now loading official test"])
+    lock_official_test()
+
+    test = load_landsat_file(TEST_PATH)
     X_test = full_scaler.transform(test.X)
-    results = []
-    for method, model, columns in (
-        ("all_features", all_train_model, np.arange(n_features)),
-        ("pso_selected", selected_train_model, selected),
-    ):
-        prediction = model.predict(X_test[:, columns])
-        results.append({
-            "run_id": run_id, "evaluation_stage": "single_final_official_test",
-            "method": method, "training_data": str(train_path), "test_data": str(test_path),
-            "seed": args.seed, "n_train": len(train.y), "n_test": len(test.y),
-            "n_features_total": n_features, "n_features_selected": len(columns),
-            "selected_feature_indices": ";".join(map(str, columns.tolist())),
-            "k_neighbors": args.k_neighbors, "validation_fraction": args.validation_fraction,
-            "epochs": args.epochs if method == "pso_selected" else "",
-            "population": args.population if method == "pso_selected" else "",
-            "objective_evaluations": evaluations if method == "pso_selected" else 0,
-            "failed_objective_evaluations": failures if method == "pso_selected" else 0,
-            "accuracy": float(accuracy_score(test.y, prediction)),
-            "macro_f1": float(f1_score(test.y, prediction, average="macro", zero_division=0)),
-            "balanced_accuracy": float(balanced_accuracy_score(test.y, prediction)),
-            "runtime_seconds": round(time.perf_counter() - started, 3), "status": "success",
-        })
-    for row in results:
-        append_row(row)
-    with LOG_PATH.open("a", encoding="utf-8") as stream:
-        stream.write(f"[{datetime.now(timezone.utc).isoformat()}] FINAL rows_written={len(results)} output={OUT_PATH}\n")
-    print(f"Frozen feature indices (zero-based): {selected.tolist()}")
-    for row in results:
-        print(f"{row['method']}: accuracy={row['accuracy']:.6f}, macro-F1={row['macro_f1']:.6f}, balanced accuracy={row['balanced_accuracy']:.6f}")
-    print(f"Saved final official test results to: {OUT_PATH}")
-
-
-if __name__ == "__main__":
-    main()
+    ctx = {"run_id": run_id, "seed": seed, "n_train": len(train.y), "n_features": n_features,
+           "k_neighbors": k_neighbors, "validation_fraction": validation_fraction, "epochs": epochs,
+           "population": population, "evaluations": search.evaluations, "failures": search.failures,
+           "started": started}
+    rows = [test_row(method, columns, model.predict(X_test[:, columns]), test, ctx)
+            for method, (model, columns) in models.items()]
+    append_rows(rows)
+    write_log([f"[{datetime.now(timezone.utc).isoformat()}] FINAL rows_written={len(rows)} output={OUT_PATH}"])
+    show(f"Frozen feature indices (zero-based): {selected.tolist()}")
+    return pd.DataFrame(rows, columns=FIELDS)
