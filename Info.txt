@@ -10,6 +10,120 @@ default value.
 
 
 -----------------------------------------------------------------------
+STUDY 1: DATA STRUCTURES AND ALGORITHMS WRITTEN FROM SCRATCH
+-----------------------------------------------------------------------
+
+These modules carry the project's own algorithms. Each is checked against a
+standard library in the tests (heapq, sorted, scikit-learn, scipy, numpy).
+
+How they link:
+  mi.py ranks features by relevance -> graph.py links redundant features ->
+  selection.py keeps the most relevant feature of each linked group, using
+  heap.py (and unionfind.py or sorting.py in the variants) -> pca.py can
+  reduce the kept features further -> knn.py classifies with kdtree.py.
+
+
+src/heap.py
+-----------
+IndexedMaxHeap: a max-heap of item ids 0..n-1, each with a numeric key.
+`pos` records where each id sits in the heap array, so a key can be found
+and changed in O(1) before the heap is repaired.
+  push(i, key)    add an id, O(log n)
+  pop()           remove and return the id with the largest key, O(log n)
+  peek()          look at the largest without removing it, O(1)
+  update(i, key)  change an id's key and move it up or down, O(log n)
+  build(keys)     build a heap from all keys at once, bottom-up, O(n)
+  _up, _down      move an item towards the root or the leaves
+  _swap           swap two items and update their recorded positions
+
+
+src/sorting.py
+--------------
+merge_sort(a, key, reverse)
+  Stable merge sort, O(n log n). It splits the list in half, sorts each half
+  and merges them. Items with equal keys keep their original order.
+
+
+src/mi.py
+---------
+Mutual information between a feature and the class label, in nats.
+  discretize(x, bins)        equal-width bins numbered 0..bins-1
+  mutual_info(xb, y)         I(X;Y) = sum p(x,y) log(p(x,y) / (p(x) p(y))),
+                             from counts kept in dictionaries
+  relevance_scores(X, y)     mutual information of every feature
+
+
+src/graph.py
+------------
+Graph: undirected graph stored as an adjacency list.
+  build_corr_graph(C, t)  one node per feature; an edge joins i and j when
+                          |correlation| > t. O(d^2) for d features.
+  bfs(g, s, max_depth)    breadth-first search; returns each reached node's
+                          distance from s. O(V + E).
+  dfs(g, s)               iterative depth-first search; returns visit order.
+  components(g)           connected components, found by repeated BFS.
+
+
+src/unionfind.py
+----------------
+UnionFind: disjoint sets with path halving and union by rank, so each
+operation is close to O(1) amortised.
+  find(x)       the representative of x's set
+  union(a, b)   join two sets; returns False if already joined
+
+
+src/selection.py
+----------------
+Feature selection that removes redundant features.
+  select_features(scores, g)
+      Main method. Puts all features in the heap by relevance. Repeatedly
+      takes the most relevant remaining feature, keeps it, and drops its
+      direct neighbours in the correlation graph (BFS to depth 1).
+      O(d log d + E).
+  select_per_component(scores, g)
+      Variant: keeps the single most relevant feature of each connected
+      component, found with Union-Find.
+  select_naive(scores, C, t)
+      Baseline for checking and timing: sorts by relevance with merge sort
+      and keeps a feature only if its |correlation| with every kept feature
+      is at most t. O(d^2). Gives the same result as select_features.
+
+
+src/kdtree.py
+-------------
+KDTree: splits the points at the median of one axis per level, until at most
+`leaf_size` points remain. Building sorts with merge_sort.
+  query(q, k)   the k nearest points as (squared distance, index), sorted.
+                A branch is skipped when the splitting plane is farther than
+                the current k-th nearest point.
+  _build, _search, _insert   build the tree, search it, and keep the
+                             nearest list sorted
+
+
+src/knn.py
+----------
+KNN: k-nearest-neighbour classifier on the KD-tree.
+  fit(X, y)         builds the tree
+  predict_one(q)    majority vote of the k nearest; a tie goes to the
+                    smallest label
+  predict(Q)        predict_one for every row
+
+
+src/pca.py
+----------
+PCA from scratch.
+  fit(X)  standardises each feature, builds the covariance matrix
+          (O(n d^2)), then finds components one at a time by power
+          iteration. After each component, deflation removes it from the
+          matrix so the next one can be found. Stops when the kept
+          components explain var_ratio of the variance (default 95%), or
+          after max_components components.
+  _top_eigenvector(C, rng)   power iteration: repeat v = Cv / |Cv| until v
+                             stops changing; returns (eigenvalue, vector)
+  transform(X)               projects standardised data onto the components
+  explained_ratio            share of variance of each component
+
+-----------------------------------------------------------------------
 MALWARE FAMILY STUDY (pcap.csv)
 -----------------------------------------------------------------------
 

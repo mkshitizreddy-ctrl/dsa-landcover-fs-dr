@@ -1,9 +1,8 @@
 class IndexedMaxHeap:
-    # 1. items are feature ids 0..n-1, each with a float key
     def __init__(self, n):
-        self.heap = []        # 2. heap array of ids
-        self.pos = [-1] * n   # 3. position of each id in heap (-1 = absent)
-        self.key = [0.0] * n  # 4. key of each id
+        self.heap = []
+        self.pos = [-1] * n
+        self.key = [0.0] * n
 
     def __len__(self):
         return len(self.heap)
@@ -22,30 +21,27 @@ class IndexedMaxHeap:
         self.pos[h[b]] = b
 
     def _up(self, k):
-        # 5. move up while larger than parent
         while k > 0:
-            p = (k - 1) // 2
-            if self.key[self.heap[k]] <= self.key[self.heap[p]]:
+            parent = (k - 1) // 2
+            if self.key[self.heap[k]] <= self.key[self.heap[parent]]:
                 break
-            self._swap(k, p)
-            k = p
+            self._swap(k, parent)
+            k = parent
 
     def _down(self, k):
-        # 6. move down while a child is larger
         n = len(self.heap)
         while True:
-            l, r, m = 2 * k + 1, 2 * k + 2, k
-            if l < n and self.key[self.heap[l]] > self.key[self.heap[m]]:
-                m = l
-            if r < n and self.key[self.heap[r]] > self.key[self.heap[m]]:
-                m = r
-            if m == k:
+            left, right, largest = 2 * k + 1, 2 * k + 2, k
+            if left < n and self.key[self.heap[left]] > self.key[self.heap[largest]]:
+                largest = left
+            if right < n and self.key[self.heap[right]] > self.key[self.heap[largest]]:
+                largest = right
+            if largest == k:
                 break
-            self._swap(k, m)
-            k = m
+            self._swap(k, largest)
+            k = largest
 
     def push(self, i, key):
-        # 7. O(log n)
         if self.pos[i] != -1:
             raise ValueError("id already in heap")
         self.key[i] = key
@@ -54,18 +50,16 @@ class IndexedMaxHeap:
         self._up(len(self.heap) - 1)
 
     def pop(self):
-        # 8. O(log n): swap root with last, remove, fix root
         top = self.heap[0]
-        k = self.key[top]
+        key = self.key[top]
         self._swap(0, len(self.heap) - 1)
         self.heap.pop()
         self.pos[top] = -1
         if self.heap:
             self._down(0)
-        return top, k
+        return top, key
 
     def update(self, i, key):
-        # 9. O(log n): change key of an item already in the heap
         old = self.key[i]
         self.key[i] = key
         if key > old:
@@ -75,7 +69,6 @@ class IndexedMaxHeap:
 
     @classmethod
     def build(cls, keys):
-        # 10. O(n) bottom-up heapify
         h = cls(len(keys))
         h.heap = list(range(len(keys)))
         h.pos = list(range(len(keys)))

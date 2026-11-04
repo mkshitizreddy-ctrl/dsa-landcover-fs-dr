@@ -88,3 +88,15 @@ def test_per_component_selects_one_best_feature_per_component():
 
     assert selected == expected
     assert len(selected) == len(set(selected))
+
+
+def test_naive_and_graph_selection_agree_on_negative_correlation():
+    rng = np.random.default_rng(0)
+    a = rng.normal(size=300)
+    X = np.column_stack([a, -a + 0.01 * rng.normal(size=300), rng.normal(size=300)])
+    correlation = np.corrcoef(X, rowvar=False)
+    scores = [3.0, 2.0, 1.0]
+    graph = build_corr_graph(correlation, 0.9)
+
+    assert sorted(select_naive(scores, correlation, 0.9)) == [0, 2]
+    assert sorted(select_features(scores, graph)) == [0, 2]
