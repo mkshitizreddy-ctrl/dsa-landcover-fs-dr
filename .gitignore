@@ -4,3 +4,4 @@ __pycache__/
 work/
 results/baseline_backup/
 data/pcap.csv
+results/*_quick_check/
