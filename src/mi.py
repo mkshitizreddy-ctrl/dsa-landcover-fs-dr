@@ -3,12 +3,12 @@ from math import log
 import numpy as np
 
 
-def discretize(x, bins=10):
+def discretize(x, bins=10, tol=1e-9):
     lo, hi = x.min(), x.max()
     if hi == lo:
         return np.zeros(len(x), dtype=int)
-    b = ((x - lo) / (hi - lo) * bins).astype(int)
-    b[b == bins] = bins - 1
+    b = np.floor((x - lo) / (hi - lo) * bins + tol).astype(int)
+    b[b >= bins] = bins - 1
     return b
 
 

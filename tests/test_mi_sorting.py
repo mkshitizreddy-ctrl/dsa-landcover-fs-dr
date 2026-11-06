@@ -68,3 +68,17 @@ def test_informative_feature_ranks_first():
     )
 
     assert order[0] == 0
+
+
+def test_values_on_a_bin_edge_go_to_the_upper_bin():
+    assert discretize(np.array([0.0, 2.9999999999999996, 10.0])).tolist() == [0, 3, 9]
+
+
+def test_scaling_does_not_change_mutual_information():
+    rng = np.random.default_rng(1)
+    counts = rng.integers(0, 11, size=(2000, 4)).astype(float)
+    y = (counts[:, 0] > 5).astype(int)
+    standard = (counts - counts.mean(axis=0)) / counts.std(axis=0)
+    min_max = (counts - counts.min(axis=0)) / (counts.max(axis=0) - counts.min(axis=0))
+    for a, b in ((counts, standard), (counts, min_max)):
+        assert np.allclose(relevance_scores(a, y), relevance_scores(b, y), atol=1e-12)
