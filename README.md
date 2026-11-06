@@ -98,8 +98,8 @@ These were computed on `sat.tst`, which earlier analyses had already used, so th
 | Raw | 36 | 0.9045 | 0.8916 | 12.05 s |
 | Heap + BFS, t = 0.95 | 25 | 0.8950 | 0.8800 | 9.28 s |
 | Heap + BFS, t = 0.9 | 11 | 0.8730 | 0.8531 | 4.65 s |
-| Heap + BFS, t = 0.8 | 5 | 0.8520 | 0.8291 | 1.30 s |
-| Heap + BFS, t = 0.7 | 2 | 0.7845 | 0.7440 | 0.21 s |
+| Heap + BFS, t = 0.8 | 5 | 0.8515 | 0.8283 | 1.30 s |
+| Heap + BFS, t = 0.7 | 2 | 0.7840 | 0.7432 | 0.21 s |
 
 | Setting (separate run, slower machine) | Dims | Accuracy | Macro-F1 | Query time |
 |---|---|---|---|---|
