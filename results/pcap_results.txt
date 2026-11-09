@@ -233,3 +233,116 @@ weighted avg       0.61      0.72      0.63    145355
     accuracy                           0.72    145355
    macro avg       0.29      0.32      0.25    145355
 weighted avg       0.63      0.72      0.63    145355
+
+================================================================================
+6. OUR FEATURE SELECTION ON THE SAME FOLDS (MI top-k and heap + BFS)
+================================================================================
+MI_top: the k features with the highest mutual information (k = 1..36).
+HeapBFS: correlation graph at threshold t (0.00..1.00), indexed max-heap + BFS keep the most relevant
+feature of each linked group. 1,644 settings, each scored by the same 4-fold CV as the grid.
+
+Best selection against best extraction (PCA, KernelPCA, LDA), by CV macro-F1: selection is higher in 5 of 12 pairs
+    Scaler Classifier                Best selection  Sel. CV F1 Best extraction  Ext. CV F1     Higher
+Normalizer         DT HeapBFS t = 0.84 (19.8 feat.)       0.254      PCA k = 14       0.269 extraction
+Normalizer         RF      MI_top k = 28 (28 feat.)       0.247      PCA k = 16       0.246  selection
+Normalizer        XGB HeapBFS t = 0.96 (22.5 feat.)       0.245      PCA k = 35       0.251 extraction
+Normalizer        SVM      MI_top k = 10 (10 feat.)       0.206       LDA k = 5       0.215 extraction
+  Standard         DT   HeapBFS t = 0.80 (18 feat.)       0.252      PCA k = 10       0.238  selection
+  Standard         RF    HeapBFS t = 0.06 (7 feat.)       0.248 KernelPCA k = 2       0.238  selection
+  Standard        XGB      MI_top k = 22 (22 feat.)       0.245      PCA k = 24       0.244  selection
+  Standard        SVM      MI_top k = 21 (21 feat.)       0.223      PCA k = 24       0.222  selection
+    MinMax         DT HeapBFS t = 0.82 (18.5 feat.)       0.248 KernelPCA k = 7       0.260 extraction
+    MinMax         RF    HeapBFS t = 0.06 (7 feat.)       0.242 KernelPCA k = 9       0.249 extraction
+    MinMax        XGB      MI_top k = 21 (21 feat.)       0.245      PCA k = 12       0.252 extraction
+    MinMax        SVM  HeapBFS t = 0.05 (6.8 feat.)       0.220      PCA k = 24       0.221 extraction
+
+Metaheuristic search over the 1,644 scored settings (20 seeds per algorithm):
+
+Budget: 100 fitness evaluations
+    Algorithm  Found best %  Within 0.01 %  Mean rank  Configs tried
+          SSA          20.0          100.0       8.90          95.75
+          WOA          15.0          100.0      19.40          59.90
+          ABC          10.0          100.0      18.80          90.65
+           GA          10.0          100.0      23.30          46.80
+          MFO          10.0          100.0      18.10          77.25
+          PSO          10.0          100.0      16.70          87.10
+           DE           5.0          100.0      25.50          66.80
+          GWO           0.0          100.0      19.65          83.00
+          HHO           0.0          100.0      33.85          57.80
+Random search           0.0          100.0      18.15          96.00
+          SMA           0.0          100.0      58.85          38.70
+
+Budget: 200 fitness evaluations
+    Algorithm  Found best %  Within 0.01 %  Mean rank  Configs tried
+          PSO          25.0          100.0       9.55         145.15
+          SSA          25.0          100.0       6.60         128.15
+          WOA          20.0          100.0      15.70          84.20
+          ABC          15.0          100.0       5.80         177.60
+           GA          15.0          100.0      19.80          52.65
+          GWO          15.0          100.0      11.20         133.10
+          MFO          15.0          100.0       8.50         121.65
+           DE          10.0          100.0      19.90          80.60
+          HHO           5.0          100.0      24.50          83.25
+Random search           5.0          100.0       8.50         185.35
+          SMA           0.0          100.0      57.60          45.75
+
+Budget: 400 fitness evaluations
+    Algorithm  Found best %  Within 0.01 %  Mean rank  Configs tried
+          ABC          35.0          100.0       2.65         288.25
+          MFO          35.0          100.0       5.20         164.15
+          PSO          30.0          100.0       8.75         196.60
+          WOA          30.0          100.0       9.70         109.80
+          GWO          25.0          100.0       8.35         220.00
+          SSA          25.0          100.0       3.60         189.30
+           GA          20.0          100.0      15.95          58.90
+          HHO          15.0          100.0      18.65         110.75
+           DE          10.0          100.0      19.90          81.95
+Random search          10.0          100.0       2.70         343.35
+          SMA           0.0          100.0      51.80          56.40
+
+Feature-mask search (Normalizer + DT, 3 seeds, budget 200; fitness 0.9 x (1 - CV macro-F1) + 0.1 x features / 36):
+   Algorithm  Mean CV macro-F1  Best CV macro-F1  Features  Masks tried
+          GA             0.257             0.260     7.333      190.667
+         PSO             0.255             0.260    10.333      198.667
+         GWO             0.254             0.259     5.000      198.000
+         MFO             0.254             0.257     3.333      134.000
+          DE             0.253             0.255     9.667      149.667
+Random masks             0.252             0.258    11.000      200.000
+         WOA             0.251             0.256     3.333       86.000
+         ABC             0.251             0.252     8.000      219.667
+         SSA             0.250             0.258     3.000      104.000
+         SMA             0.246             0.250     2.000       74.667
+         HHO             0.242             0.249     3.000       53.333
+
+Held-out test set: our CV-chosen settings and the grid's tested configurations, one evaluation each (refitted on development rows; MI and the graph recomputed on those rows):
+    Scaler    Method k / t / mask Classifier  Features  CV macro-F1  Test macro-F1  Test bal. acc.  Test acc.
+Normalizer   HeapBFS         0.84         DT        20        0.254          0.300           0.327      0.646
+Normalizer    MI_top         33.0         DT        33        0.253          0.299           0.326      0.646
+Normalizer       PCA           14         DT        14        0.269          0.299           0.332      0.648
+Normalizer      Mask    GA seed 2         DT        10        0.260          0.292           0.332      0.664
+Normalizer       PCA           35         RF        35        0.245          0.284           0.322      0.703
+Normalizer    MI_top         28.0         RF        28        0.247          0.283           0.320      0.698
+    MinMax KernelPCA            9         RF         9        0.249          0.279           0.307      0.695
+Normalizer KernelPCA            1         DT         1        0.233          0.270           0.321      0.683
+    MinMax       PCA           36        XGB        36        0.245          0.257           0.297      0.721
+Normalizer   HeapBFS         0.96        XGB        23        0.245          0.257           0.302      0.720
+  Standard   HeapBFS         0.06         RF         6        0.248          0.256           0.320      0.717
+  Standard    MI_top         22.0        XGB        22        0.245          0.256           0.294      0.719
+    MinMax       PCA           12        XGB        12        0.252          0.254           0.295      0.720
+  Standard       PCA           24        SVM        24        0.222          0.252           0.317      0.720
+  Standard    MI_top         21.0        SVM        21        0.223          0.251           0.317      0.719
+  Standard   HeapBFS         0.36        SVM        12        0.223          0.250           0.318      0.718
+
+Per-family results of the best selection setting on the test set (Normalizer_HeapBFS_t0.84_DT):
+              precision    recall  f1-score   support
+
+      Benign       0.55      0.89      0.68     10362
+   DarkNexus       0.15      0.09      0.11      8831
+      Gafgyt       0.00      0.00      0.00       164
+     Generic       0.02      0.02      0.02      1722
+       Mirai       0.76      0.79      0.77    101555
+     Unknown       0.26      0.17      0.21     22721
+
+    accuracy                           0.65    145355
+   macro avg       0.29      0.33      0.30    145355
+weighted avg       0.62      0.65      0.63    145355

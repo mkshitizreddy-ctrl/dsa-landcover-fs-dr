@@ -38,7 +38,7 @@ src/
   pcap_feature_selection.py  our MI and heap + BFS selection on pcap, every scaler and classifier
   pcap_fs_search.py    metaheuristic search over those settings, and feature-mask search
   pcap_fs_final_test.py  single test evaluation of the chosen selection settings
-tests/                 unit tests (144 in total)
+tests/                 unit tests (146 in total)
 scripts/               experiment runners for studies 1 and 2, pcap pilot and timing
 results/               all experiment outputs (csv, txt, logs)
 report/                written reports

@@ -30,7 +30,7 @@ Two functions use a held-out test set and refuse to run a second time, so
 each test set is used only once: run_pso_final_test (Landsat sat.tst) and
 run_final_test (pcap test hashes).
 
-Tests: python -m pytest tests/ -q   (144 tests)
+Tests: python -m pytest tests/ -q   (146 tests)
 
 Folders:
   src/       the algorithms and the shared modules
@@ -850,5 +850,12 @@ scripts/write_pcap_report.py
 Collects every saved result of the malware study into one readable text
 file, results/pcap_results.txt. It only reads result files.
   data_section, pilot_section, grid_section, search_section,
-  final_section    one section each
+  final_section, selection_section    one section each; the last covers the
+                   feature-selection study (pcap_feature_selection.py,
+                   pcap_fs_search.py, pcap_fs_final_test.py)
+  search_tables(runs)    hit-rate tables per budget, shared by the grid search
+                         and the selection search
+  selection_vs_extraction(comparison)    best selection against best
+                         extraction for every scaler and classifier
+  selection_tag(row)     the file name used for a tested selection setting
   write_pcap_report(out_path)

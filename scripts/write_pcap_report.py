@@ -71,13 +71,23 @@ def grid_section(grid):
     return lines
 
 
-def search_section(grid):
-    runs = pd.read_csv(RESULTS / "pcap_mh_v1" / "runs.csv")
-    runs["algorithm"] = runs["algorithm"].replace({"RANDOM": "Random search"})
+def search_tables(runs):
+    runs = runs.assign(algorithm=runs["algorithm"].replace({"RANDOM": "Random search"}))
     search = runs.groupby(["budget", "algorithm"]).agg(
         found_best=("hit_best", "mean"), within_001=("hit_near", "mean"),
         mean_rank=("best_rank", "mean"), configs_tried=("unique_configs", "mean")).reset_index()
     search[["found_best", "within_001"]] *= 100
+    lines = []
+    for budget, part in search.groupby("budget"):
+        part = part.drop(columns="budget").sort_values(["found_best", "within_001"], ascending=False)
+        lines += ["", f"Budget: {budget} fitness evaluations"] + table(part.rename(columns={
+            "algorithm": "Algorithm", "found_best": "Found best %", "within_001": "Within 0.01 %",
+            "mean_rank": "Mean rank", "configs_tried": "Configs tried"}))
+    return lines
+
+
+def search_section(grid):
+    runs = pd.read_csv(RESULTS / "pcap_mh_v1" / "runs.csv")
     best = grid.sort_values("f1_macro_mean", ascending=False, kind="stable").iloc[0]
     lines = heading("4. METAHEURISTIC SEARCH OVER THE GRID (20 seeds per algorithm)") + [
         f"Best grid configuration: {best.scaler} + {best.reduction}, k = {best.k}, {best.classifier}"
@@ -85,12 +95,7 @@ def search_section(grid):
         f"Each candidate's score is looked up from the grid. Cost = configurations tried (out of {len(grid)}).",
         "found_best and within_001 are % of runs; mean_rank is the true rank of the result (1 = best).",
     ]
-    for budget, part in search.groupby("budget"):
-        part = part.drop(columns="budget").sort_values(["found_best", "within_001"], ascending=False)
-        lines += ["", f"Budget: {budget} fitness evaluations"] + table(part.rename(columns={
-            "algorithm": "Algorithm", "found_best": "Found best %", "within_001": "Within 0.01 %",
-            "mean_rank": "Mean rank", "configs_tried": "Configs tried"}))
-    return lines
+    return lines + search_tables(runs)
 
 
 def final_section():
@@ -119,9 +124,72 @@ def final_section():
     return lines
 
 
+def selection_vs_extraction(comparison):
+    rows = []
+    for (scaler, clf), part in comparison.groupby(["scaler", "classifier"], sort=False):
+        ranked = part.sort_values("cv_f1_macro", ascending=False, kind="stable")
+        sel = ranked[ranked.method.isin(["MI_top", "HeapBFS"])].iloc[0]
+        ext = ranked[~ranked.method.isin(["MI_top", "HeapBFS"])].iloc[0]
+        rows.append({"Scaler": scaler, "Classifier": clf,
+                     "Best selection": f"{sel.method} {sel.setting} ({sel.features_or_components:g} feat.)",
+                     "Sel. CV F1": sel.cv_f1_macro, "Best extraction": f"{ext.method} {ext.setting}",
+                     "Ext. CV F1": ext.cv_f1_macro, "Higher": "selection" if sel.cv_f1_macro > ext.cv_f1_macro
+                     else "extraction"})
+    return pd.DataFrame(rows)
+
+
+def selection_tag(row):
+    if row.method == "HeapBFS":
+        param = f"t{float(row.param):.2f}"
+    elif row.method == "MI_top":
+        param = f"k{int(float(row.param))}"
+    else:
+        param = str(row.param).replace(" ", "_")
+    return f"{row.scaler}_{row.method}_{param}_{row.classifier}"
+
+
+def selection_section():
+    comparison = pd.read_csv(RESULTS / "pcap_fs_v1" / "comparison_with_grid.csv")
+    versus = selection_vs_extraction(comparison)
+    wins = int((versus.Higher == "selection").sum())
+    lines = heading("6. OUR FEATURE SELECTION ON THE SAME FOLDS (MI top-k and heap + BFS)") + [
+        "MI_top: the k features with the highest mutual information (k = 1..36).",
+        "HeapBFS: correlation graph at threshold t (0.00..1.00), indexed max-heap + BFS keep the most relevant",
+        "feature of each linked group. 1,644 settings, each scored by the same 4-fold CV as the grid.",
+        "", f"Best selection against best extraction (PCA, KernelPCA, LDA), by CV macro-F1: selection is higher"
+            f" in {wins} of {len(versus)} pairs"] + table(versus)
+    lines += ["", "Metaheuristic search over the 1,644 scored settings (20 seeds per algorithm):"]
+    lines += search_tables(pd.read_csv(RESULTS / "pcap_fs_search_v1" / "runs.csv"))
+    masks = pd.read_csv(RESULTS / "pcap_mask_search_v1" / "runs.csv")
+    masks["algorithm"] = masks["algorithm"].replace({"RANDOM": "Random masks"})
+    mask_table = masks.groupby("algorithm").agg(
+        mean_f1=("cv_f1_macro", "mean"), best_f1=("cv_f1_macro", "max"), features=("n_features", "mean"),
+        masks_tried=("unique_masks", "mean")).reset_index().sort_values("mean_f1", ascending=False)
+    first = masks.iloc[0]
+    lines += ["", f"Feature-mask search ({first.scaler} + {first.classifier}, {masks.seed.nunique()} seeds, budget"
+                  f" {first.budget}; fitness 0.9 x (1 - CV macro-F1) + 0.1 x features / 36):"]
+    lines += table(mask_table.rename(columns={"algorithm": "Algorithm", "mean_f1": "Mean CV macro-F1",
+                                              "best_f1": "Best CV macro-F1", "features": "Features",
+                                              "masks_tried": "Masks tried"}))
+    final_dir = RESULTS / "pcap_fs_final_v1"
+    test = pd.read_csv(final_dir / "comparison_with_grid_test.csv")
+    columns = {"scaler": "Scaler", "method": "Method", "param": "k / t / mask", "classifier": "Classifier",
+               "n_features": "Features", "cv_f1_macro": "CV macro-F1", "test_f1_macro": "Test macro-F1",
+               "test_balanced_accuracy": "Test bal. acc.", "test_accuracy": "Test acc."}
+    lines += ["", "Held-out test set: our CV-chosen settings and the grid's tested configurations, one evaluation"
+                  " each (refitted on development rows; MI and the graph recomputed on those rows):"]
+    lines += table(test[list(columns)].rename(columns=columns))
+    best = pd.read_csv(final_dir / "test_results.csv").sort_values("test_f1_macro", ascending=False).iloc[0]
+    tag = selection_tag(best)
+    lines += ["", f"Per-family results of the best selection setting on the test set ({tag}):",
+              (final_dir / f"test_report_{tag}.txt").read_text(encoding="utf-8").rstrip()]
+    return lines
+
+
 def write_pcap_report(out_path=REPORT_PATH):
     grid = pd.read_csv(RESULTS / "pcap_grid_v1" / "grid_summary.csv")
     lines = ["PCAP MALWARE FAMILY CLASSIFICATION: RESULTS", "DSA Project, M.Tech AIML, Bennett University"]
-    lines += data_section() + pilot_section() + grid_section(grid) + search_section(grid) + final_section()
+    lines += (data_section() + pilot_section() + grid_section(grid) + search_section(grid) + final_section()
+              + selection_section())
     Path(out_path).write_text("\n".join(lines) + "\n", encoding="utf-8")
     return Path(out_path)
