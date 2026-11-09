@@ -30,7 +30,7 @@ Two functions use a held-out test set and refuse to run a second time, so
 each test set is used only once: run_pso_final_test (Landsat sat.tst) and
 run_final_test (pcap test hashes).
 
-Tests: python -m pytest tests/ -q   (118 tests)
+Tests: python -m pytest tests/ -q   (144 tests)
 
 Folders:
   src/       the algorithms and the shared modules
@@ -57,7 +57,10 @@ number of PCA components k), and to select features directly.
 The malware family study applies the same steps (scaling, dimensionality
 reduction, classification and metaheuristic search) to a much larger
 dataset. Every configuration is scored once, so the study can also measure
-how often each metaheuristic finds the true best configuration.
+how often each metaheuristic finds the true best configuration. Finally, the
+Study 1 selection (mutual information, correlation graph, heap + BFS) runs on
+the same pcap data and folds, so selection and extraction (PCA, KernelPCA,
+LDA) are compared directly, in cross-validation and on the held-out test set.
 
 
 -----------------------------------------------------------------------
@@ -98,7 +101,11 @@ merge_sort(a, key, reverse)
 src/mi.py
 ---------
 Mutual information between a feature and the class label, in nats.
-  discretize(x, bins)        equal-width bins numbered 0..bins-1
+  discretize(x, bins, tol)   equal-width bins numbered 0..bins-1. A value
+                             that lies on a bin edge goes to the upper bin;
+                             the small tolerance tol stops rounding errors
+                             from moving it, so scaling a feature cannot
+                             change its bins or its score
   mutual_info(xb, y)         I(X;Y) = sum p(x,y) log(p(x,y) / (p(x) p(y))),
                              from counts kept in dictionaries
   relevance_scores(X, y)     mutual information of every feature
@@ -482,6 +489,12 @@ Order of use:
   2. src/pcap_grid.py        score every configuration (run_grid)
   3. src/pcap_mh_search.py   search the grid with metaheuristics (run_search)
   4. src/pcap_final_test.py  evaluate the chosen configurations once (run_final_test)
+  5. src/pcap_feature_selection.py  score our feature selection on the same
+                             folds (run_pcap_feature_selection)
+  6. src/pcap_fs_search.py   search those settings and feature masks with
+                             metaheuristics (run_selection_search, run_mask_search)
+  7. src/pcap_fs_final_test.py  evaluate the chosen selection settings once
+                             (run_fs_final_test)
 
 
 src/pcap_data.py
@@ -668,6 +681,142 @@ Functions:
   run_final_test(data_path, splits_path, grid_path, out_dir, svm_max_rows,
                  kpca_max_train, seed, show)
       Runs the whole evaluation and returns the results table.
+
+
+src/pcap_feature_selection.py
+-----------------------------
+Runs the project's own feature selection on the pcap data, with the same
+grid sample, folds, scalers and classifiers as pcap_grid.py, so the result
+is directly comparable with PCA, KernelPCA and LDA.
+
+For each fold and scaler, on the training rows only: median imputation,
+scaling, mutual information of every feature (mi.py) and the absolute
+correlation matrix. Then two methods produce feature subsets:
+  MI_top    the k features with the highest mutual information, ordered
+            with merge_sort, for k = 1..36
+  HeapBFS   build_corr_graph links features whose |correlation| exceeds t;
+            select_features (indexed max-heap + BFS) keeps the most relevant
+            feature and removes its neighbours, for t = 0.00, 0.01, ..., 1.00
+Many thresholds give the same subset; each distinct subset is trained only
+once per fold and classifier. t = 1.00 keeps all 36 features.
+
+Results are saved after every block and a stopped run resumes.
+
+Outputs (results/pcap_fs_v1/):
+  fold_scores.csv           one row per setting and fold, with the selected
+                            feature names
+  fs_summary.csv            mean and SD over the 4 folds per setting
+  mi_scores.csv             mutual information of each feature per fold
+  comparison_with_grid.csv  best of each method per scaler and classifier
+  fs.log                    progress log
+
+Functions:
+  prepare_fold(X, train_rows, valid_rows, scaler_name)
+      Imputes and scales, fitted on the training rows.
+  feature_statistics(Z_train, y_train, bins)
+      Mutual information scores and the |correlation| matrix (undefined
+      correlations of constant columns become 0).
+  mi_top_subsets(scores, ks) / heap_bfs_subsets(scores, C, thresholds)
+      The feature subsets of each method.
+  score_subsets(...)
+      Trains each distinct subset once, in parallel for DT and SVM.
+  load_done, fold_rows, result_fields
+      Resume support and the rows written to fold_scores.csv.
+  summarize(fold_csv, n_folds, out_csv)
+      Averages the folds.
+  compare_with_grid(summary, grid_path) / best_per_method(comparison)
+      Puts our methods next to the grid's PCA, KernelPCA and LDA.
+  run_pcap_feature_selection(data_path, splits_path, scalers, classifiers,
+                             thresholds, max_k, mi_bins, jobs, seed,
+                             quick_check, out_dir, show)
+      Runs everything. quick_check=True uses fold 1, k = 2, 10, 36 and
+      t = 0.5, 0.9, 1.0, and writes to results/pcap_fs_quick_check/.
+
+
+src/pcap_fs_search.py
+---------------------
+Two metaheuristic studies on the selection methods.
+
+1. Search over the scored settings (run_selection_search). Four numbers in
+   [0, 1] become one setting: scaler, method (MI_top or HeapBFS), k or t,
+   classifier. The score is looked up from fs_summary.csv, so the search
+   takes seconds and the true best setting is known. It reuses Tracker,
+   run_algorithm, run_random and summarize_runs from pcap_mh_search.py with
+   the same budgets (100, 200, 400), seeds (20) and population (20).
+
+2. Feature-mask search (run_mask_search). Each algorithm searches a 36-bit
+   mask directly, with real training (Normalizer + DT by default).
+   Fitness (minimised), as in Study 2:
+       0.9 x (1 - mean CV macro-F1 over the 4 folds) + 0.1 x (features / 36)
+   Each distinct mask is trained once. 10 algorithms and random masks,
+   3 seeds, a budget of 200 fitness calls, runs in parallel.
+   Mealpy checks the budget after each iteration, so ABC (two evaluations
+   per member per iteration) can use up to 220 calls.
+
+Outputs: results/pcap_fs_search_v1/ (runs.csv, a summary,
+random_search_odds.csv) and results/pcap_mask_search_v1/ (runs.csv with the
+best mask of each run, curves.csv with the best score after each new mask,
+a summary).
+
+Functions:
+  SelectionSpace(table, n_features)
+      All 1,644 scored settings. decode(position) turns four numbers into a
+      setting; rank and count_within come from GridSpace.
+  search_odds(space, near, draws)
+      Chance that uniform random sampling finds the best (ties counted).
+  selection_labels(row)
+      Renames the grid's columns to method and param.
+  run_selection_search(summary_path, algorithms, budgets, n_seeds,
+                       population, near, n_features, save, out_dir, show)
+      Returns (runs, summary, odds).
+  MaskObjective(fold_data, class_ids, classifier, alpha, threshold)
+      The mask fitness. It caches every mask and records the best.
+  search_mask(name, fold_data, class_ids, budget, population, seed,
+              classifier, alpha)
+      One run of one algorithm, or of random masks (RANDOM).
+  mask_row, curve_rows, summarize_masks, load_fold_data
+      Output rows, the summary per algorithm and the fold data.
+  run_mask_search(data_path, splits_path, algorithms, seeds, budget,
+                  population, scaler, classifier, alpha, jobs, quick_check,
+                  save, out_dir, show)
+      Returns (runs, summary). quick_check=True runs PSO, GWO and random
+      masks with 30 evaluations each.
+
+
+src/pcap_fs_final_test.py
+-------------------------
+Evaluates the selection settings chosen by cross-validation once on the
+held-out test set, under the same rules as pcap_final_test.py.
+
+Chosen settings: the best MI_top and the best HeapBFS setting overall and
+for each classifier, and the single best metaheuristic mask (by CV
+macro-F1). Settings chosen for several reasons are evaluated once.
+
+Each is refitted on all development rows. For MI_top and HeapBFS, mutual
+information and the correlation graph are recomputed on those rows with the
+chosen k or t; a mask keeps its features. SVM trains on the same stratified
+60,000-row subsample as in pcap_final_test.py. The function refuses to run
+if results already exist.
+
+Outputs (results/pcap_fs_final_v1/): test_results.csv, a classification
+report and a confusion matrix per setting, and comparison_with_grid_test.csv
+(our settings and the grid's tested configurations in one table).
+
+Functions:
+  SelectedModel
+      imputer -> scaler -> chosen columns -> classifier, with predict(X).
+  select_settings(fs_summary, mask_runs)
+      Picks the settings listed above, with the reasons for each.
+  setting_tag(setting)
+      A short name such as Normalizer_HeapBFS_t0.84_DT.
+  training_rows, choose_columns, fit_setting
+      Refit helpers. Mutual information is computed once per scaler and
+      number of training rows.
+  compare_with_grid_test(results, grid_test_path)
+      The combined test table, sorted by test macro-F1.
+  run_fs_final_test(data_path, splits_path, fs_summary_path, mask_runs_path,
+                    out_dir, svm_max_rows, seed, show)
+      Runs the evaluation and returns the results table.
 
 
 scripts/run_pcap_small.py

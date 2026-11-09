@@ -10,7 +10,7 @@ The project studies feature selection and dimensionality reduction for classific
 |---|---|---|
 | [1. Graph-based selection and PCA from scratch](#1-graph-based-selection-and-pca-from-scratch) | UCI Statlog Landsat (6,435 samples, 36 features, 6 classes) | Can redundancy removal with our own heap, graph and PCA code keep accuracy while cutting features? |
 | [2. Metaheuristic comparison](#2-metaheuristic-comparison-landsat) | Landsat (training file only) | How do ten nature-inspired optimisers compare at selecting features and tuning the pipeline? |
-| [3. Malware family classification](#3-malware-family-classification-pcap) | Network traffic, `pcap.csv` (737,651 packets, 39 features, 8 families) | Which scaling, reduction and classifier combination works best, and can metaheuristics find it without trying every combination? |
+| [3. Malware family classification](#3-malware-family-classification-pcap) | Network traffic, `pcap.csv` (737,651 packets, 39 features, 8 families) | Which scaling, reduction and classifier combination works best, can metaheuristics find it without trying every combination, and does our graph-based selection compete with PCA? |
 
 All core data structures (heap, merge sort, mutual information, graph search, Union-Find, KD-tree, kNN, PCA) are written from scratch and validated against numpy, scipy and scikit-learn.
 
@@ -35,7 +35,10 @@ src/
   pcap_grid.py         exhaustive scaler x reduction x k x classifier grid
   pcap_mh_search.py    metaheuristic search over the grid
   pcap_final_test.py   refit and single evaluation on the held-out test set
-tests/                 unit tests (118 in total)
+  pcap_feature_selection.py  our MI and heap + BFS selection on pcap, every scaler and classifier
+  pcap_fs_search.py    metaheuristic search over those settings, and feature-mask search
+  pcap_fs_final_test.py  single test evaluation of the chosen selection settings
+tests/                 unit tests (144 in total)
 scripts/               experiment runners for studies 1 and 2, pcap pilot and timing
 results/               all experiment outputs (csv, txt, logs)
 report/                written reports
@@ -227,13 +230,38 @@ Each classifier's best configuration (by CV accuracy and by CV macro-F1) was ref
 
 Predicting Mirai for every packet already scores 0.699 accuracy.
 
+### Our feature selection on the same data
+
+The Study 1 selection runs on the same grid sample, folds, scalers and classifiers (`src/pcap_feature_selection.py`):
+
+- **MI top-k**: the *k* features with the highest mutual information, *k* = 1–36.
+- **Heap + BFS**: correlation graph at threshold *t* = 0.00–1.00 in steps of 0.01, then the indexed max-heap and BFS keep the most relevant feature of each linked group.
+
+All 1,644 settings were scored with 4-fold CV. Selection beat the best of PCA, KernelPCA and LDA in 5 of the 12 scaler and classifier pairs (all four classifiers under the Standard scaler, and Random Forest under the Normalizer). Under the Standard scaler, heap + BFS with Random Forest kept 7 features and scored 0.248 CV macro-F1 against 0.239 for the best extraction. The best CV score overall still came from extraction: Normalizer + PCA (14) + Decision Tree, 0.269, against 0.254 for the best selection setting.
+
+**Metaheuristics.** Searching the 1,644 scored settings (`src/pcap_fs_search.py`, same budgets and seeds as the grid search) is harder than searching the grid: 122 settings lie within 0.01 of the best, so every algorithm reaches the near-best region within about 10 settings, but the single best setting is an isolated peak that ABC and MFO found in 35% of runs at a budget of 400 (random search 10%). A direct feature-mask search (Normalizer + Decision Tree, 10 algorithms and random masks, 3 seeds, 200 evaluations) found small subsets: GA averaged 0.257 CV macro-F1 with about 7 features and GWO 0.254 with 5, against 0.252 for random masks and 0.250 for all 36 features.
+
+**Held-out test.** The settings chosen by CV were refitted on all development rows (mutual information and the graph recomputed on those rows) and evaluated once on the 145,355 test packets (`src/pcap_fs_final_test.py`):
+
+| Setting | Features | CV macro-F1 | Test macro-F1 | Balanced accuracy | Accuracy |
+|---|---|---|---|---|---|
+| Normalizer + heap + BFS, *t* = 0.84, Decision Tree | 20 | 0.254 | **0.300** | 0.327 | 0.646 |
+| Normalizer + MI top-33, Decision Tree | 33 | 0.253 | 0.299 | 0.326 | 0.646 |
+| Normalizer + PCA, *k* = 14, Decision Tree (grid best) | 14 | 0.269 | 0.299 | 0.332 | 0.648 |
+| Normalizer + GA mask, Decision Tree | 10 | 0.260 | 0.292 | 0.332 | 0.664 |
+
+On unseen malware samples our graph-based selection matches PCA while keeping original, interpretable features. The CV lead of PCA and of the mask search did not carry over to the test set: both were chosen from many candidates on the same folds, so part of their CV advantage was optimism.
+
+**Limitations found along the way.** Equal-width binning gives heavy-tailed columns (such as `Rate`) almost no mutual information, while heap + BFS at low *t* keeps any feature that correlates with nothing, whatever its relevance. A first version of the binning let floating-point rounding at bin edges change the scores after scaling; this was fixed (`discretize` now uses a small tolerance) and every affected result was regenerated. Decision Tree scores on identical features can still differ by about 0.02 between scalers.
+
 ### Findings
 
 - CV selection held up on unseen malware samples: the CV accuracy leader has the highest test accuracy, and the CV macro-F1 leader the highest test macro-F1.
 - Ranking by accuracy picks models that mostly predict Benign and Mirai; ranking by macro-F1 picks a model that recognises more families.
 - A decision tree on 14 PCA components matches Random Forest on all 36 raw features (0.299 vs 0.298 test macro-F1).
 - The top of the grid is a plateau: the 10 best configurations lie within 0.012 CV macro-F1.
-- Gafgyt and Generic are not recognised by any configuration; scaling, reduction or classifier choice does not change this.
+- Gafgyt and Generic are not recognised by any configuration; scaling, reduction, selection or classifier choice does not change this.
+- Our heap + BFS selection matches the best PCA configuration on the test set (0.300 vs 0.299 test macro-F1) with original features.
 
 ### Reproduce
 
@@ -242,6 +270,9 @@ from pcap_data import create_splits
 from pcap_grid import run_grid
 from pcap_mh_search import run_search
 from pcap_final_test import run_final_test
+from pcap_feature_selection import run_pcap_feature_selection
+from pcap_fs_search import run_selection_search, run_mask_search
+from pcap_fs_final_test import run_fs_final_test
 from run_pcap_small import run_pcap_pilot
 from write_pcap_report import write_pcap_report
 
@@ -250,13 +281,17 @@ run_grid(quick_check=True)
 summary = run_grid()
 runs, search_summary = run_search()
 test_results = run_final_test()
+fs_summary = run_pcap_feature_selection()
+fs_runs, fs_search_summary, odds = run_selection_search()
+mask_runs, mask_summary = run_mask_search()
+fs_test_results = run_fs_final_test()
 run_pcap_pilot(pca=5)
 write_pcap_report()
 ```
 
-`run_grid(quick_check=True)` scores one fold with three component counts in a few minutes and writes to its own folder. The full grid is resumable: if it stops, calling it again skips what is done. `run_final_test` refuses to run a second time, so the test set is used once. `write_pcap_report` collects all results into `results/pcap_results.txt`.
+`run_grid(quick_check=True)` scores one fold with three component counts in a few minutes and writes to its own folder. The full grid is resumable: if it stops, calling it again skips what is done. `run_final_test` and `run_fs_final_test` refuse to run a second time, so each set of chosen settings is tested once. `run_pcap_feature_selection` resumes like the grid; it takes about 35 minutes, and the mask search about 5. `write_pcap_report` collects all results into `results/pcap_results.txt`.
 
-Outputs: `results/pcap_small_v2/`, `results/pcap_grid_v1/`, `results/pcap_mh_v1/`, `results/pcap_final_v1/` (including `best_model.joblib`, the configuration with the highest CV accuracy).
+Outputs: `results/pcap_small_v2/`, `results/pcap_grid_v1/`, `results/pcap_mh_v1/`, `results/pcap_final_v1/` (including `best_model.joblib`, the configuration with the highest CV accuracy), `results/pcap_fs_v1/`, `results/pcap_fs_search_v1/`, `results/pcap_mask_search_v1/`, `results/pcap_fs_final_v1/`.
 
 ---
 
