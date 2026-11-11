@@ -82,11 +82,11 @@ def transform(reducer, Z, chunk=4000):
     return np.vstack([reducer.transform(Z[i:i + chunk]) for i in range(0, len(Z), chunk)])
 
 
-def evaluate(clf_name, Z_tr, y_tr, Z_va, y_va, class_ids, seed=42):
+def evaluate(clf_name, Z_tr, y_tr, Z_va, y_va, class_ids, seed=42, sample_weight=None):
     out = {"status": "success", "error": ""}
     try:
         start = time.perf_counter()
-        model = make_classifier(clf_name, seed).fit(Z_tr, y_tr)
+        model = make_classifier(clf_name, seed).fit(Z_tr, y_tr, sample_weight=sample_weight)
         out["fit_seconds"] = round(time.perf_counter() - start, 3)
         start = time.perf_counter()
         pred = model.predict(Z_va)
