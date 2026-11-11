@@ -14,6 +14,9 @@ class IndexedMaxHeap:
         top = self.heap[0]
         return top, self.key[top]
 
+    def _above(self, a, b):
+        return self.key[a] > self.key[b] or (self.key[a] == self.key[b] and a < b)
+
     def _swap(self, a, b):
         h = self.heap
         h[a], h[b] = h[b], h[a]
@@ -23,7 +26,7 @@ class IndexedMaxHeap:
     def _up(self, k):
         while k > 0:
             parent = (k - 1) // 2
-            if self.key[self.heap[k]] <= self.key[self.heap[parent]]:
+            if not self._above(self.heap[k], self.heap[parent]):
                 break
             self._swap(k, parent)
             k = parent
@@ -32,9 +35,9 @@ class IndexedMaxHeap:
         n = len(self.heap)
         while True:
             left, right, largest = 2 * k + 1, 2 * k + 2, k
-            if left < n and self.key[self.heap[left]] > self.key[self.heap[largest]]:
+            if left < n and self._above(self.heap[left], self.heap[largest]):
                 largest = left
-            if right < n and self.key[self.heap[right]] > self.key[self.heap[largest]]:
+            if right < n and self._above(self.heap[right], self.heap[largest]):
                 largest = right
             if largest == k:
                 break

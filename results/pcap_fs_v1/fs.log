@@ -1,62 +1,62 @@
-[2026-11-06T19:03:43+00:00] START run_id=20261106T190343Z folds=4 scalers=['Standard', 'MinMax', 'Normalizer'] classifiers=['RF', 'XGB', 'DT', 'SVM'] k values=36 thresholds=101 features=36 jobs=14 quick_check=False
-[2026-11-06T19:03:44+00:00] fold 1 Standard: 137 settings, 65 distinct feature subsets
-[2026-11-06T19:04:27+00:00] fold 1/4 Standard   RF  65 fits, best HeapBFS 0.13 macro-F1 0.2438 | block 43s | elapsed 44s
-[2026-11-06T19:05:06+00:00] fold 1/4 Standard   XGB 65 fits, best HeapBFS 0.93 macro-F1 0.2345 | block 39s | elapsed 83s
-[2026-11-06T19:05:10+00:00] fold 1/4 Standard   DT  65 fits, best HeapBFS 0.26 macro-F1 0.2504 | block 4s | elapsed 86s
-[2026-11-06T19:06:39+00:00] fold 1/4 Standard   SVM 65 fits, best MI_top 21.0 macro-F1 0.2203 | block 89s | elapsed 176s
-[2026-11-06T19:06:40+00:00] fold 1 MinMax: 137 settings, 65 distinct feature subsets
-[2026-11-06T19:07:23+00:00] fold 1/4 MinMax     RF  65 fits, best HeapBFS 0.05 macro-F1 0.2458 | block 43s | elapsed 220s
-[2026-11-06T19:08:02+00:00] fold 1/4 MinMax     XGB 65 fits, best HeapBFS 0.22 macro-F1 0.2427 | block 40s | elapsed 259s
-[2026-11-06T19:08:03+00:00] fold 1/4 MinMax     DT  65 fits, best HeapBFS 0.22 macro-F1 0.2571 | block 1s | elapsed 260s
-[2026-11-06T19:09:30+00:00] fold 1/4 MinMax     SVM 65 fits, best HeapBFS 0.05 macro-F1 0.2179 | block 86s | elapsed 347s
-[2026-11-06T19:09:30+00:00] fold 1 Normalizer: 137 settings, 63 distinct feature subsets
-[2026-11-06T19:10:13+00:00] fold 1/4 Normalizer RF  63 fits, best MI_top 21.0 macro-F1 0.2477 | block 43s | elapsed 390s
-[2026-11-06T19:10:59+00:00] fold 1/4 Normalizer XGB 63 fits, best MI_top 21.0 macro-F1 0.2505 | block 45s | elapsed 436s
-[2026-11-06T19:11:00+00:00] fold 1/4 Normalizer DT  63 fits, best MI_top 13.0 macro-F1 0.2566 | block 1s | elapsed 437s
-[2026-11-06T19:12:39+00:00] fold 1/4 Normalizer SVM 63 fits, best MI_top 15.0 macro-F1 0.2016 | block 99s | elapsed 535s
-[2026-11-06T19:12:39+00:00] fold 2 Standard: 137 settings, 65 distinct feature subsets
-[2026-11-06T19:13:23+00:00] fold 2/4 Standard   RF  65 fits, best HeapBFS 0.06 macro-F1 0.2571 | block 44s | elapsed 580s
-[2026-11-06T19:14:01+00:00] fold 2/4 Standard   XGB 65 fits, best MI_top 21.0 macro-F1 0.2609 | block 38s | elapsed 618s
-[2026-11-06T19:14:02+00:00] fold 2/4 Standard   DT  65 fits, best HeapBFS 0.51 macro-F1 0.2521 | block 1s | elapsed 619s
-[2026-11-06T19:15:35+00:00] fold 2/4 Standard   SVM 65 fits, best HeapBFS 0.03 macro-F1 0.2297 | block 93s | elapsed 712s
-[2026-11-06T19:15:36+00:00] fold 2 MinMax: 137 settings, 65 distinct feature subsets
-[2026-11-06T19:16:19+00:00] fold 2/4 MinMax     RF  65 fits, best MI_top 15.0 macro-F1 0.2502 | block 44s | elapsed 756s
-[2026-11-06T19:16:58+00:00] fold 2/4 MinMax     XGB 65 fits, best MI_top 17.0 macro-F1 0.2601 | block 38s | elapsed 794s
-[2026-11-06T19:16:58+00:00] fold 2/4 MinMax     DT  65 fits, best MI_top 15.0 macro-F1 0.2620 | block 1s | elapsed 795s
-[2026-11-06T19:18:27+00:00] fold 2/4 MinMax     SVM 65 fits, best HeapBFS 0.05 macro-F1 0.2241 | block 89s | elapsed 884s
-[2026-11-06T19:18:28+00:00] fold 2 Normalizer: 137 settings, 63 distinct feature subsets
-[2026-11-06T19:19:10+00:00] fold 2/4 Normalizer RF  63 fits, best HeapBFS 0.1 macro-F1 0.2592 | block 43s | elapsed 927s
-[2026-11-06T19:19:54+00:00] fold 2/4 Normalizer XGB 63 fits, best HeapBFS 0.96 macro-F1 0.2466 | block 44s | elapsed 971s
-[2026-11-06T19:19:55+00:00] fold 2/4 Normalizer DT  63 fits, best MI_top 19.0 macro-F1 0.2575 | block 1s | elapsed 972s
-[2026-11-06T19:21:39+00:00] fold 2/4 Normalizer SVM 63 fits, best MI_top 6.0 macro-F1 0.2077 | block 104s | elapsed 1076s
-[2026-11-06T19:21:39+00:00] fold 3 Standard: 137 settings, 65 distinct feature subsets
-[2026-11-06T19:22:24+00:00] fold 3/4 Standard   RF  65 fits, best HeapBFS 0.25 macro-F1 0.2539 | block 45s | elapsed 1121s
-[2026-11-06T19:23:03+00:00] fold 3/4 Standard   XGB 65 fits, best HeapBFS 0.87 macro-F1 0.2523 | block 39s | elapsed 1160s
-[2026-11-06T19:23:04+00:00] fold 3/4 Standard   DT  65 fits, best HeapBFS 0.05 macro-F1 0.2492 | block 1s | elapsed 1161s
-[2026-11-06T19:24:37+00:00] fold 3/4 Standard   SVM 65 fits, best MI_top 21.0 macro-F1 0.2235 | block 93s | elapsed 1254s
-[2026-11-06T19:24:38+00:00] fold 3 MinMax: 137 settings, 65 distinct feature subsets
-[2026-11-06T19:25:22+00:00] fold 3/4 MinMax     RF  65 fits, best HeapBFS 0.64 macro-F1 0.2469 | block 44s | elapsed 1299s
-[2026-11-06T19:26:00+00:00] fold 3/4 MinMax     XGB 65 fits, best HeapBFS 0.98 macro-F1 0.2513 | block 38s | elapsed 1336s
-[2026-11-06T19:26:02+00:00] fold 3/4 MinMax     DT  65 fits, best HeapBFS 0.82 macro-F1 0.2515 | block 2s | elapsed 1339s
-[2026-11-06T19:27:19+00:00] fold 3/4 MinMax     SVM 65 fits, best HeapBFS 0.05 macro-F1 0.2191 | block 77s | elapsed 1416s
-[2026-11-06T19:27:19+00:00] fold 3 Normalizer: 137 settings, 65 distinct feature subsets
-[2026-11-06T19:27:52+00:00] fold 3/4 Normalizer RF  65 fits, best MI_top 28.0 macro-F1 0.2515 | block 33s | elapsed 1449s
-[2026-11-06T19:28:35+00:00] fold 3/4 Normalizer XGB 65 fits, best HeapBFS 0.96 macro-F1 0.2465 | block 42s | elapsed 1492s
-[2026-11-06T19:28:36+00:00] fold 3/4 Normalizer DT  65 fits, best MI_top 19.0 macro-F1 0.2559 | block 1s | elapsed 1493s
-[2026-11-06T19:30:09+00:00] fold 3/4 Normalizer SVM 65 fits, best MI_top 13.0 macro-F1 0.2080 | block 93s | elapsed 1585s
-[2026-11-06T19:30:09+00:00] fold 4 Standard: 137 settings, 69 distinct feature subsets
-[2026-11-06T19:30:43+00:00] fold 4/4 Standard   RF  69 fits, best HeapBFS 0.05 macro-F1 0.2447 | block 34s | elapsed 1620s
-[2026-11-06T19:31:20+00:00] fold 4/4 Standard   XGB 69 fits, best HeapBFS 0.94 macro-F1 0.2507 | block 37s | elapsed 1657s
-[2026-11-06T19:31:21+00:00] fold 4/4 Standard   DT  69 fits, best HeapBFS 0.8 macro-F1 0.2778 | block 1s | elapsed 1658s
-[2026-11-06T19:32:49+00:00] fold 4/4 Standard   SVM 69 fits, best MI_top 27.0 macro-F1 0.2229 | block 88s | elapsed 1746s
-[2026-11-06T19:32:50+00:00] fold 4 MinMax: 137 settings, 69 distinct feature subsets
-[2026-11-06T19:33:23+00:00] fold 4/4 MinMax     RF  69 fits, best MI_top 31.0 macro-F1 0.2448 | block 33s | elapsed 1780s
-[2026-11-06T19:34:00+00:00] fold 4/4 MinMax     XGB 69 fits, best MI_top 9.0 macro-F1 0.2429 | block 37s | elapsed 1817s
-[2026-11-06T19:34:03+00:00] fold 4/4 MinMax     DT  69 fits, best HeapBFS 0.85 macro-F1 0.2600 | block 3s | elapsed 1820s
-[2026-11-06T19:35:28+00:00] fold 4/4 MinMax     SVM 69 fits, best HeapBFS 0.05 macro-F1 0.2207 | block 85s | elapsed 1905s
-[2026-11-06T19:35:28+00:00] fold 4 Normalizer: 137 settings, 65 distinct feature subsets
-[2026-11-06T19:36:01+00:00] fold 4/4 Normalizer RF  65 fits, best HeapBFS 0.83 macro-F1 0.2499 | block 33s | elapsed 1938s
-[2026-11-06T19:36:43+00:00] fold 4/4 Normalizer XGB 65 fits, best MI_top 30.0 macro-F1 0.2430 | block 42s | elapsed 1979s
-[2026-11-06T19:36:44+00:00] fold 4/4 Normalizer DT  65 fits, best HeapBFS 0.49 macro-F1 0.2928 | block 1s | elapsed 1980s
-[2026-11-06T19:38:17+00:00] fold 4/4 Normalizer SVM 65 fits, best MI_top 2.0 macro-F1 0.2070 | block 94s | elapsed 2074s
-[2026-11-06T19:38:18+00:00] END elapsed 2074s | complete settings 1644
+[2026-11-11T15:28:00+00:00] START run_id=20261111T152800Z folds=4 scalers=['Standard', 'MinMax', 'Normalizer'] classifiers=['RF', 'XGB', 'DT', 'SVM'] k values=36 thresholds=101 features=36 jobs=14 quick_check=False
+[2026-11-11T15:28:00+00:00] fold 1 Standard: 137 settings, 65 distinct feature subsets
+[2026-11-11T15:28:42+00:00] fold 1/4 Standard   RF  65 fits, best HeapBFS 0.13 macro-F1 0.2438 | block 42s | elapsed 42s
+[2026-11-11T15:29:20+00:00] fold 1/4 Standard   XGB 65 fits, best HeapBFS 0.93 macro-F1 0.2354 | block 39s | elapsed 81s
+[2026-11-11T15:29:24+00:00] fold 1/4 Standard   DT  65 fits, best HeapBFS 0.26 macro-F1 0.2504 | block 4s | elapsed 85s
+[2026-11-11T15:30:55+00:00] fold 1/4 Standard   SVM 65 fits, best MI_top 21.0 macro-F1 0.2203 | block 91s | elapsed 175s
+[2026-11-11T15:30:55+00:00] fold 1 MinMax: 137 settings, 65 distinct feature subsets
+[2026-11-11T15:31:38+00:00] fold 1/4 MinMax     RF  65 fits, best HeapBFS 0.05 macro-F1 0.2458 | block 43s | elapsed 219s
+[2026-11-11T15:32:16+00:00] fold 1/4 MinMax     XGB 65 fits, best HeapBFS 0.22 macro-F1 0.2427 | block 38s | elapsed 257s
+[2026-11-11T15:32:17+00:00] fold 1/4 MinMax     DT  65 fits, best HeapBFS 0.22 macro-F1 0.2571 | block 1s | elapsed 258s
+[2026-11-11T15:33:40+00:00] fold 1/4 MinMax     SVM 65 fits, best HeapBFS 0.05 macro-F1 0.2179 | block 83s | elapsed 341s
+[2026-11-11T15:33:40+00:00] fold 1 Normalizer: 137 settings, 63 distinct feature subsets
+[2026-11-11T15:34:22+00:00] fold 1/4 Normalizer RF  63 fits, best MI_top 21.0 macro-F1 0.2477 | block 42s | elapsed 383s
+[2026-11-11T15:35:06+00:00] fold 1/4 Normalizer XGB 63 fits, best HeapBFS 0.99 macro-F1 0.2512 | block 44s | elapsed 427s
+[2026-11-11T15:35:07+00:00] fold 1/4 Normalizer DT  63 fits, best MI_top 13.0 macro-F1 0.2566 | block 1s | elapsed 428s
+[2026-11-11T15:36:43+00:00] fold 1/4 Normalizer SVM 63 fits, best MI_top 15.0 macro-F1 0.2016 | block 96s | elapsed 524s
+[2026-11-11T15:36:44+00:00] fold 2 Standard: 137 settings, 65 distinct feature subsets
+[2026-11-11T15:37:28+00:00] fold 2/4 Standard   RF  65 fits, best HeapBFS 0.06 macro-F1 0.2571 | block 44s | elapsed 569s
+[2026-11-11T15:38:05+00:00] fold 2/4 Standard   XGB 65 fits, best MI_top 21.0 macro-F1 0.2609 | block 36s | elapsed 605s
+[2026-11-11T15:38:05+00:00] fold 2/4 Standard   DT  65 fits, best HeapBFS 0.51 macro-F1 0.2521 | block 1s | elapsed 606s
+[2026-11-11T15:39:35+00:00] fold 2/4 Standard   SVM 65 fits, best HeapBFS 0.03 macro-F1 0.2297 | block 90s | elapsed 696s
+[2026-11-11T15:39:36+00:00] fold 2 MinMax: 137 settings, 65 distinct feature subsets
+[2026-11-11T15:40:20+00:00] fold 2/4 MinMax     RF  65 fits, best MI_top 15.0 macro-F1 0.2502 | block 44s | elapsed 740s
+[2026-11-11T15:40:56+00:00] fold 2/4 MinMax     XGB 65 fits, best MI_top 17.0 macro-F1 0.2601 | block 37s | elapsed 777s
+[2026-11-11T15:40:57+00:00] fold 2/4 MinMax     DT  65 fits, best MI_top 15.0 macro-F1 0.2620 | block 1s | elapsed 777s
+[2026-11-11T15:42:19+00:00] fold 2/4 MinMax     SVM 65 fits, best HeapBFS 0.05 macro-F1 0.2241 | block 82s | elapsed 860s
+[2026-11-11T15:42:20+00:00] fold 2 Normalizer: 137 settings, 63 distinct feature subsets
+[2026-11-11T15:43:02+00:00] fold 2/4 Normalizer RF  63 fits, best HeapBFS 0.1 macro-F1 0.2592 | block 42s | elapsed 902s
+[2026-11-11T15:43:45+00:00] fold 2/4 Normalizer XGB 63 fits, best HeapBFS 0.89 macro-F1 0.2576 | block 43s | elapsed 946s
+[2026-11-11T15:43:46+00:00] fold 2/4 Normalizer DT  63 fits, best MI_top 19.0 macro-F1 0.2575 | block 1s | elapsed 947s
+[2026-11-11T15:45:33+00:00] fold 2/4 Normalizer SVM 63 fits, best MI_top 6.0 macro-F1 0.2077 | block 107s | elapsed 1053s
+[2026-11-11T15:45:33+00:00] fold 3 Standard: 137 settings, 65 distinct feature subsets
+[2026-11-11T15:46:17+00:00] fold 3/4 Standard   RF  65 fits, best HeapBFS 0.25 macro-F1 0.2536 | block 44s | elapsed 1097s
+[2026-11-11T15:46:55+00:00] fold 3/4 Standard   XGB 65 fits, best HeapBFS 0.88 macro-F1 0.2525 | block 39s | elapsed 1136s
+[2026-11-11T15:46:56+00:00] fold 3/4 Standard   DT  65 fits, best HeapBFS 0.05 macro-F1 0.2492 | block 1s | elapsed 1137s
+[2026-11-11T15:48:28+00:00] fold 3/4 Standard   SVM 65 fits, best MI_top 21.0 macro-F1 0.2235 | block 92s | elapsed 1229s
+[2026-11-11T15:48:28+00:00] fold 3 MinMax: 137 settings, 65 distinct feature subsets
+[2026-11-11T15:49:12+00:00] fold 3/4 MinMax     RF  65 fits, best HeapBFS 0.52 macro-F1 0.2464 | block 43s | elapsed 1272s
+[2026-11-11T15:49:49+00:00] fold 3/4 MinMax     XGB 65 fits, best HeapBFS 0.94 macro-F1 0.2523 | block 38s | elapsed 1310s
+[2026-11-11T15:49:52+00:00] fold 3/4 MinMax     DT  65 fits, best HeapBFS 0.82 macro-F1 0.2518 | block 2s | elapsed 1312s
+[2026-11-11T15:51:17+00:00] fold 3/4 MinMax     SVM 65 fits, best HeapBFS 0.05 macro-F1 0.2191 | block 85s | elapsed 1397s
+[2026-11-11T15:51:17+00:00] fold 3 Normalizer: 137 settings, 65 distinct feature subsets
+[2026-11-11T15:52:01+00:00] fold 3/4 Normalizer RF  65 fits, best MI_top 28.0 macro-F1 0.2515 | block 44s | elapsed 1442s
+[2026-11-11T15:52:50+00:00] fold 3/4 Normalizer XGB 65 fits, best HeapBFS 0.96 macro-F1 0.2455 | block 49s | elapsed 1490s
+[2026-11-11T15:52:51+00:00] fold 3/4 Normalizer DT  65 fits, best MI_top 19.0 macro-F1 0.2559 | block 1s | elapsed 1492s
+[2026-11-11T15:54:34+00:00] fold 3/4 Normalizer SVM 65 fits, best MI_top 13.0 macro-F1 0.2080 | block 103s | elapsed 1594s
+[2026-11-11T15:54:34+00:00] fold 4 Standard: 137 settings, 69 distinct feature subsets
+[2026-11-11T15:55:21+00:00] fold 4/4 Standard   RF  69 fits, best HeapBFS 0.05 macro-F1 0.2447 | block 46s | elapsed 1641s
+[2026-11-11T15:56:00+00:00] fold 4/4 Standard   XGB 69 fits, best HeapBFS 0.94 macro-F1 0.2507 | block 40s | elapsed 1681s
+[2026-11-11T15:56:01+00:00] fold 4/4 Standard   DT  69 fits, best HeapBFS 0.8 macro-F1 0.2778 | block 1s | elapsed 1682s
+[2026-11-11T15:57:46+00:00] fold 4/4 Standard   SVM 69 fits, best MI_top 27.0 macro-F1 0.2229 | block 105s | elapsed 1787s
+[2026-11-11T15:57:47+00:00] fold 4 MinMax: 137 settings, 69 distinct feature subsets
+[2026-11-11T15:58:34+00:00] fold 4/4 MinMax     RF  69 fits, best MI_top 31.0 macro-F1 0.2448 | block 47s | elapsed 1834s
+[2026-11-11T15:59:15+00:00] fold 4/4 MinMax     XGB 69 fits, best MI_top 9.0 macro-F1 0.2429 | block 41s | elapsed 1875s
+[2026-11-11T15:59:16+00:00] fold 4/4 MinMax     DT  69 fits, best HeapBFS 0.85 macro-F1 0.2600 | block 2s | elapsed 1877s
+[2026-11-11T16:00:49+00:00] fold 4/4 MinMax     SVM 69 fits, best HeapBFS 0.05 macro-F1 0.2207 | block 92s | elapsed 1969s
+[2026-11-11T16:00:49+00:00] fold 4 Normalizer: 137 settings, 65 distinct feature subsets
+[2026-11-11T16:01:33+00:00] fold 4/4 Normalizer RF  65 fits, best HeapBFS 0.83 macro-F1 0.2499 | block 44s | elapsed 2014s
+[2026-11-11T16:02:19+00:00] fold 4/4 Normalizer XGB 65 fits, best MI_top 30.0 macro-F1 0.2430 | block 46s | elapsed 2060s
+[2026-11-11T16:02:20+00:00] fold 4/4 Normalizer DT  65 fits, best HeapBFS 0.49 macro-F1 0.2928 | block 1s | elapsed 2061s
+[2026-11-11T16:04:00+00:00] fold 4/4 Normalizer SVM 65 fits, best MI_top 2.0 macro-F1 0.2070 | block 99s | elapsed 2160s
+[2026-11-11T16:04:00+00:00] END elapsed 2160s | complete settings 1644

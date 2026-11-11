@@ -51,3 +51,20 @@ def test_update_keys():
     ]
 
     assert drain(heap) == sorted(expected, reverse=True)
+
+
+def test_equal_keys_pop_lowest_id_first():
+    keys = [0.5, 0.9, 0.5, 0.9, 0.5, 0.1, 0.9]
+    built = IndexedMaxHeap.build(keys)
+    pushed = IndexedMaxHeap(len(keys))
+    for i in reversed(range(len(keys))):
+        pushed.push(i, keys[i])
+    expected = [1, 3, 6, 0, 2, 4, 5]
+    assert [built.pop()[0] for _ in keys] == expected
+    assert [pushed.pop()[0] for _ in keys] == expected
+
+
+def test_update_respects_the_tie_rule():
+    heap = IndexedMaxHeap.build([0.2, 0.5, 0.5])
+    heap.update(0, 0.5)
+    assert [heap.pop()[0] for _ in range(3)] == [0, 1, 2]

@@ -93,3 +93,14 @@ def test_naive_and_graph_selection_agree_on_negative_correlation():
 
     assert sorted(select_naive(scores, correlation, 0.9)) == [0, 2]
     assert sorted(select_features(scores, graph)) == [0, 2]
+
+
+def test_heap_bfs_equals_naive_when_scores_are_tied():
+    rng = np.random.default_rng(3)
+    base = rng.normal(size=(400, 4))
+    X = np.column_stack([base[:, j % 4] + 0.4 * rng.normal(size=400) for j in range(16)])
+    correlation = np.corrcoef(X, rowvar=False)
+    scores = [float(v) for v in rng.integers(0, 3, size=16)]
+    for t in np.linspace(0.0, 1.0, 41):
+        graph = build_corr_graph(correlation, t)
+        assert sorted(select_features(scores, graph)) == sorted(select_naive(scores, correlation, t))
