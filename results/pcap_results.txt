@@ -243,9 +243,9 @@ feature of each linked group. 1,644 settings, each scored by the same 4-fold CV 
 
 Best selection against best extraction (PCA, KernelPCA, LDA), by CV macro-F1: selection is higher in 5 of 12 pairs
     Scaler Classifier                Best selection  Sel. CV F1 Best extraction  Ext. CV F1     Higher
-Normalizer         DT HeapBFS t = 0.84 (19.8 feat.)       0.254      PCA k = 14       0.269 extraction
+Normalizer         DT HeapBFS t = 0.58 (14.2 feat.)       0.254      PCA k = 14       0.269 extraction
 Normalizer         RF      MI_top k = 28 (28 feat.)       0.247      PCA k = 16       0.246  selection
-Normalizer        XGB HeapBFS t = 0.96 (22.5 feat.)       0.245      PCA k = 35       0.251 extraction
+Normalizer        XGB   HeapBFS t = 0.91 (21 feat.)       0.247      PCA k = 35       0.251 extraction
 Normalizer        SVM      MI_top k = 10 (10 feat.)       0.206       LDA k = 5       0.215 extraction
   Standard         DT   HeapBFS t = 0.80 (18 feat.)       0.252      PCA k = 10       0.238  selection
   Standard         RF    HeapBFS t = 0.06 (7 feat.)       0.248 KernelPCA k = 2       0.238  selection
@@ -260,45 +260,45 @@ Metaheuristic search over the 1,644 scored settings (20 seeds per algorithm):
 
 Budget: 100 fitness evaluations
     Algorithm  Found best %  Within 0.01 %  Mean rank  Configs tried
-          SSA          20.0          100.0       8.90          95.75
-          WOA          15.0          100.0      19.40          59.90
-          ABC          10.0          100.0      18.80          90.65
-           GA          10.0          100.0      23.30          46.80
-          MFO          10.0          100.0      18.10          77.25
-          PSO          10.0          100.0      16.70          87.10
-           DE           5.0          100.0      25.50          66.80
-          GWO           0.0          100.0      19.65          83.00
-          HHO           0.0          100.0      33.85          57.80
-Random search           0.0          100.0      18.15          96.00
-          SMA           0.0          100.0      58.85          38.70
+          SSA          20.0          100.0      14.95          95.15
+          PSO          10.0          100.0      15.50          88.05
+          ABC           5.0          100.0      18.65          90.90
+           DE           5.0          100.0      26.05          66.35
+          GWO           5.0          100.0      16.85          82.75
+          HHO           5.0          100.0      34.75          57.75
+          WOA           5.0          100.0      20.60          59.45
+           GA           0.0          100.0      15.05          47.55
+          MFO           0.0          100.0      24.40          76.95
+Random search           0.0          100.0      17.90          96.00
+          SMA           0.0          100.0      61.85          38.80
 
 Budget: 200 fitness evaluations
     Algorithm  Found best %  Within 0.01 %  Mean rank  Configs tried
-          PSO          25.0          100.0       9.55         145.15
-          SSA          25.0          100.0       6.60         128.15
-          WOA          20.0          100.0      15.70          84.20
-          ABC          15.0          100.0       5.80         177.60
-           GA          15.0          100.0      19.80          52.65
-          GWO          15.0          100.0      11.20         133.10
-          MFO          15.0          100.0       8.50         121.65
-           DE          10.0          100.0      19.90          80.60
-          HHO           5.0          100.0      24.50          83.25
-Random search           5.0          100.0       8.50         185.35
-          SMA           0.0          100.0      57.60          45.75
+          SSA          40.0          100.0      10.85         125.40
+          PSO          25.0          100.0       9.15         146.70
+          ABC          20.0          100.0       6.40         178.10
+          GWO          20.0          100.0       9.05         134.95
+           DE          15.0          100.0      22.80          80.20
+          HHO          10.0          100.0      27.25          83.75
+Random search          10.0          100.0       7.50         185.35
+          WOA          10.0          100.0      16.90          84.85
+           GA           0.0          100.0      13.80          54.40
+          MFO           0.0          100.0      15.10         122.60
+          SMA           0.0          100.0      61.30          45.70
 
 Budget: 400 fitness evaluations
     Algorithm  Found best %  Within 0.01 %  Mean rank  Configs tried
-          ABC          35.0          100.0       2.65         288.25
-          MFO          35.0          100.0       5.20         164.15
-          PSO          30.0          100.0       8.75         196.60
-          WOA          30.0          100.0       9.70         109.80
-          GWO          25.0          100.0       8.35         220.00
-          SSA          25.0          100.0       3.60         189.30
-           GA          20.0          100.0      15.95          58.90
-          HHO          15.0          100.0      18.65         110.75
-           DE          10.0          100.0      19.90          81.95
-Random search          10.0          100.0       2.70         343.35
-          SMA           0.0          100.0      51.80          56.40
+          SSA          65.0          100.0       3.35         190.90
+          PSO          45.0          100.0       7.20         208.05
+          ABC          35.0          100.0       3.90         292.75
+          GWO          30.0          100.0       7.50         226.95
+           DE          15.0          100.0      21.15          82.90
+          HHO          15.0          100.0      22.85         111.20
+          MFO          15.0          100.0       9.00         165.25
+Random search          10.0          100.0       2.35         343.35
+          WOA          10.0          100.0      13.10         108.50
+           GA           0.0          100.0      11.80          60.05
+          SMA           0.0          100.0      55.10          56.05
 
 Feature-mask search (Normalizer + DT, 3 seeds, budget 200; fitness 0.9 x (1 - CV macro-F1) + 0.1 x features / 36):
    Algorithm  Mean CV macro-F1  Best CV macro-F1  Features  Masks tried
@@ -316,16 +316,16 @@ Random masks             0.252             0.258    11.000      200.000
 
 Held-out test set: our CV-chosen settings and the grid's tested configurations, one evaluation each (refitted on development rows; MI and the graph recomputed on those rows):
     Scaler    Method k / t / mask Classifier  Features  CV macro-F1  Test macro-F1  Test bal. acc.  Test acc.
-Normalizer   HeapBFS         0.84         DT        20        0.254          0.300           0.327      0.646
 Normalizer    MI_top         33.0         DT        33        0.253          0.299           0.326      0.646
 Normalizer       PCA           14         DT        14        0.269          0.299           0.332      0.648
 Normalizer      Mask    GA seed 2         DT        10        0.260          0.292           0.332      0.664
+Normalizer   HeapBFS         0.58         DT        14        0.254          0.289           0.322      0.649
 Normalizer       PCA           35         RF        35        0.245          0.284           0.322      0.703
 Normalizer    MI_top         28.0         RF        28        0.247          0.283           0.320      0.698
     MinMax KernelPCA            9         RF         9        0.249          0.279           0.307      0.695
 Normalizer KernelPCA            1         DT         1        0.233          0.270           0.321      0.683
+Normalizer   HeapBFS         0.91        XGB        21        0.247          0.258           0.305      0.721
     MinMax       PCA           36        XGB        36        0.245          0.257           0.297      0.721
-Normalizer   HeapBFS         0.96        XGB        23        0.245          0.257           0.302      0.720
   Standard   HeapBFS         0.06         RF         6        0.248          0.256           0.320      0.717
   Standard    MI_top         22.0        XGB        22        0.245          0.256           0.294      0.719
     MinMax       PCA           12        XGB        12        0.252          0.254           0.295      0.720
@@ -333,16 +333,61 @@ Normalizer   HeapBFS         0.96        XGB        23        0.245          0.2
   Standard    MI_top         21.0        SVM        21        0.223          0.251           0.317      0.719
   Standard   HeapBFS         0.36        SVM        12        0.223          0.250           0.318      0.718
 
-Per-family results of the best selection setting on the test set (Normalizer_HeapBFS_t0.84_DT):
+Per-family results of the best selection setting on the test set (Normalizer_MI_top_k33_DT):
               precision    recall  f1-score   support
 
-      Benign       0.55      0.89      0.68     10362
-   DarkNexus       0.15      0.09      0.11      8831
+      Benign       0.55      0.88      0.68     10362
+   DarkNexus       0.14      0.09      0.11      8831
       Gafgyt       0.00      0.00      0.00       164
      Generic       0.02      0.02      0.02      1722
        Mirai       0.76      0.79      0.77    101555
-     Unknown       0.26      0.17      0.21     22721
+     Unknown       0.26      0.18      0.21     22721
 
     accuracy                           0.65    145355
    macro avg       0.29      0.33      0.30    145355
 weighted avg       0.62      0.65      0.63    145355
+
+================================================================================
+7. CLASS WEIGHTING FOR THE RARE FAMILIES
+================================================================================
+The best configuration of each classifier from the grid and from the selection study, retrained on the
+same 4 folds with no weights, sqrt weights (square root of the inverse class frequency) and balanced
+weights (inverse class frequency). Weights average 1. Values are means over the folds.
+
+CV macro-F1
+                  Configuration  none  sqrt  balanced
+      MinMax + KernelPCA 9 + RF 0.249 0.253     0.252
+          MinMax + PCA 12 + XGB 0.252 0.256     0.244
+Normalizer + HeapBFS 0.91 + XGB 0.247 0.261     0.252
+       Normalizer + PCA 14 + DT 0.269 0.263     0.245
+ Normalizer + HeapBFS 0.58 + DT 0.254 0.245     0.235
+   Standard + HeapBFS 0.06 + RF 0.248 0.247     0.246
+        Standard + PCA 24 + SVM 0.222 0.251     0.204
+     Standard + MI_top 21 + SVM 0.223 0.228     0.203
+
+Balanced accuracy, accuracy and F1 of every family
+                  Configuration  Weights  Bal. acc.  Acc.  f1_Benign  f1_DarkNexus  f1_Gafgyt  f1_Generic  f1_Mirai  f1_Unknown
+      MinMax + KernelPCA 9 + RF     none      0.255 0.578      0.657         0.051      0.000       0.031     0.623       0.131
+      MinMax + KernelPCA 9 + RF     sqrt      0.260 0.568      0.659         0.070      0.000       0.038     0.608       0.143
+      MinMax + KernelPCA 9 + RF balanced      0.269 0.527      0.660         0.059      0.038       0.028     0.543       0.185
+          MinMax + PCA 12 + XGB     none      0.264 0.627      0.677         0.034      0.062       0.000     0.676       0.061
+          MinMax + PCA 12 + XGB     sqrt      0.274 0.602      0.682         0.067      0.000       0.061     0.631       0.097
+          MinMax + PCA 12 + XGB balanced      0.300 0.496      0.674         0.051      0.000       0.082     0.471       0.183
+Normalizer + HeapBFS 0.91 + XGB     none      0.262 0.630      0.683         0.044      0.000       0.036     0.676       0.044
+Normalizer + HeapBFS 0.91 + XGB     sqrt      0.279 0.612      0.689         0.078      0.000       0.073     0.641       0.084
+Normalizer + HeapBFS 0.91 + XGB balanced      0.313 0.499      0.677         0.046      0.056       0.084     0.478       0.172
+       Normalizer + PCA 14 + DT     none      0.282 0.571      0.671         0.062      0.138       0.009     0.592       0.142
+       Normalizer + PCA 14 + DT     sqrt      0.274 0.561      0.666         0.059      0.108       0.024     0.586       0.138
+       Normalizer + PCA 14 + DT balanced      0.258 0.550      0.660         0.055      0.000       0.031     0.582       0.142
+ Normalizer + HeapBFS 0.58 + DT     none      0.265 0.568      0.668         0.065      0.056       0.026     0.587       0.122
+ Normalizer + HeapBFS 0.58 + DT     sqrt      0.256 0.557      0.662         0.058      0.000       0.035     0.582       0.131
+ Normalizer + HeapBFS 0.58 + DT balanced      0.249 0.537      0.653         0.053      0.000       0.016     0.566       0.123
+   Standard + HeapBFS 0.06 + RF     none      0.257 0.580      0.667         0.059      0.000       0.044     0.615       0.105
+   Standard + HeapBFS 0.06 + RF     sqrt      0.257 0.565      0.664         0.060      0.000       0.037     0.595       0.123
+   Standard + HeapBFS 0.06 + RF balanced      0.278 0.515      0.662         0.064      0.040       0.035     0.519       0.156
+        Standard + PCA 24 + SVM     none      0.254 0.617      0.688         0.000      0.000       0.000     0.639       0.006
+        Standard + PCA 24 + SVM     sqrt      0.307 0.611      0.689         0.026      0.111       0.000     0.627       0.055
+        Standard + PCA 24 + SVM balanced      0.424 0.428      0.684         0.063      0.037       0.048     0.230       0.165
+     Standard + MI_top 21 + SVM     none      0.255 0.619      0.689         0.000      0.000       0.000     0.640       0.009
+     Standard + MI_top 21 + SVM     sqrt      0.255 0.611      0.689         0.005      0.000       0.000     0.624       0.050
+     Standard + MI_top 21 + SVM balanced      0.419 0.431      0.684         0.057      0.022       0.054     0.235       0.169
