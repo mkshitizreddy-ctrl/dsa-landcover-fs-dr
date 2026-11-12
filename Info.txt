@@ -30,7 +30,7 @@ Two functions use a held-out test set and refuse to run a second time, so
 each test set is used only once: run_pso_final_test (Landsat sat.tst) and
 run_final_test (pcap test hashes).
 
-Tests: python -m pytest tests/ -q   (146 tests)
+Tests: python -m pytest tests/ -q   (162 tests)
 
 Folders:
   src/       the algorithms and the shared modules
@@ -87,6 +87,10 @@ and changed in O(1) before the heap is repaired.
   peek()          look at the largest without removing it, O(1)
   update(i, key)  change an id's key and move it up or down, O(log n)
   build(keys)     build a heap from all keys at once, bottom-up, O(n)
+  _above(a, b)    True when id a belongs above id b: a larger key, or an
+                  equal key and a smaller id. Equal keys therefore always
+                  pop in increasing id order, so the result never depends
+                  on the heap's internal layout
   _up, _down      move an item towards the root or the leaves
   _swap           swap two items and update their recorded positions
 
@@ -245,6 +249,23 @@ groups of four correlated features.
   run_complexity(feature_counts, threshold, trials, save, seed)
       Returns the table, the exponents and the plot. save=True writes
       results/complexity.csv and results/complexity.png.
+
+Growth in the number of rows, on real data:
+  load_scaling_data(dataset)  standardized Landsat training rows, or the
+                              imputed and standardized pcap development rows
+  correlation_matrix(X)       |correlation|, undefined values set to 0
+  time_stages(X, y, threshold, trials)
+      Times mutual information, the correlation matrix, graph building,
+      heap + BFS, the naive method and our PCA, and checks that heap + BFS
+      and naive select the same features.
+  plot_stage_times(results, dataset)   log-log runtime plot per stage
+  run_data_scaling(dataset, rows, threshold, trials, save, seed, show)
+      dataset is "landsat" (500 to 4,435 rows, t = 0.9) or "pcap" (1,000
+      to 591,484 rows, t = 0.84). Random subsets of each size are timed and
+      growth exponents are fitted on the larger half of the sizes.
+      save=True writes results/complexity_rows_<dataset>.csv and .png.
+  growth_exponents(results, min_d, size_column, columns)
+      The same fit for either sweep: size_column "d" or "n".
 
 Note: run_fs_experiment and run_pca_experiment use the official test set,
 which earlier analyses had already used, so these numbers are reported as
@@ -495,6 +516,8 @@ Order of use:
                              metaheuristics (run_selection_search, run_mask_search)
   7. src/pcap_fs_final_test.py  evaluate the chosen selection settings once
                              (run_fs_final_test)
+  8. src/pcap_class_weights.py  retrain the best configurations with class
+                             weights (run_class_weighting)
 
 
 src/pcap_data.py
@@ -583,9 +606,10 @@ Functions:
       Fits PCA, KernelPCA or LDA.
   transform(reducer, Z)
       Applies a fitted reducer in chunks, to keep memory low.
-  evaluate(clf_name, Z_tr, y_tr, Z_va, y_va, class_ids, seed)
+  evaluate(clf_name, Z_tr, y_tr, Z_va, y_va, class_ids, seed, sample_weight)
       Fits one classifier and returns accuracy, balanced accuracy, macro-F1
-      and per-class F1. A failure is returned, not raised.
+      and per-class F1. A failure is returned, not raised. sample_weight is
+      optional (used by pcap_class_weights.py).
   score_over_k(...)
       Runs evaluate for every k, in parallel where possible.
   load_done(path) / append_rows(path, rows, fields)
@@ -819,6 +843,38 @@ Functions:
       Runs the evaluation and returns the results table.
 
 
+src/pcap_class_weights.py
+-------------------------
+Tests whether class weights help the rare families. Gafgyt has only 4
+development hashes, so the grid sample holds 20 Gafgyt packets.
+
+Configurations: the best of each classifier by CV macro-F1 from the grid
+(extraction) and from the selection study, 8 in total. Each is retrained on
+the same 4 folds with three weightings, all scaled to an average weight of 1:
+  none       every packet counts the same
+  sqrt       square root of the inverse class frequency
+  balanced   inverse class frequency (each class has the same total weight)
+
+Outputs (results/pcap_weighting_v1/): fold_scores.csv (one row per
+configuration, weighting and fold) and summary.csv (means over the folds,
+with the F1 of every family).
+
+Functions:
+  class_weights(y, scheme)    one weight per training row, or None
+  best_of(table, metric)      the best row of a table
+  choose_configs(grid, fs_summary)
+      The 8 configurations described above.
+  config_features(config, Z_train, y_train, Z_valid, stats, seed,
+                  kpca_max_train)
+      Rebuilds a configuration's features on one fold: PCA, KernelPCA or
+      LDA fitted on the training rows, or the MI top-k or heap + BFS subset.
+  summarize_weighting(fold_scores, class_names)
+      Averages the folds and names the per-family F1 columns.
+  run_class_weighting(data_path, splits_path, grid_path, fs_summary_path,
+                      schemes, kpca_max_train, seed, save, out_dir, show)
+      Runs everything and returns the summary.
+
+
 scripts/run_pcap_small.py
 -------------------------
 The pilot experiment: Random Forest and XGBoost on 5 original columns (the
@@ -858,4 +914,5 @@ file, results/pcap_results.txt. It only reads result files.
   selection_vs_extraction(comparison)    best selection against best
                          extraction for every scaler and classifier
   selection_tag(row)     the file name used for a tested selection setting
+  weighting_section()    section 7: class weighting (pcap_class_weights.py)
   write_pcap_report(out_path)

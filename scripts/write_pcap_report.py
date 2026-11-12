@@ -186,10 +186,27 @@ def selection_section():
     return lines
 
 
+def weighting_section():
+    summary = pd.read_csv(RESULTS / "pcap_weighting_v1" / "summary.csv")
+    summary["Configuration"] = (summary.scaler + " + " + summary.method + " " + summary.param.map("{:g}".format)
+                                + " + " + summary.classifier)
+    macro = summary.pivot_table(index="Configuration", columns="scheme", values="f1_macro", sort=False)
+    families = [c for c in summary.columns if c.startswith("f1_") and c != "f1_macro"]
+    lines = heading("7. CLASS WEIGHTING FOR THE RARE FAMILIES") + [
+        "The best configuration of each classifier from the grid and from the selection study, retrained on the",
+        "same 4 folds with no weights, sqrt weights (square root of the inverse class frequency) and balanced",
+        "weights (inverse class frequency). Weights average 1. Values are means over the folds.",
+        "", "CV macro-F1"] + table(macro[["none", "sqrt", "balanced"]].reset_index())
+    detail = summary[["Configuration", "scheme", "balanced_accuracy", "accuracy"] + families]
+    lines += ["", "Balanced accuracy, accuracy and F1 of every family"] + table(detail.rename(columns={
+        "scheme": "Weights", "balanced_accuracy": "Bal. acc.", "accuracy": "Acc."}))
+    return lines
+
+
 def write_pcap_report(out_path=REPORT_PATH):
     grid = pd.read_csv(RESULTS / "pcap_grid_v1" / "grid_summary.csv")
     lines = ["PCAP MALWARE FAMILY CLASSIFICATION: RESULTS", "DSA Project, M.Tech AIML, Bennett University"]
     lines += (data_section() + pilot_section() + grid_section(grid) + search_section(grid) + final_section()
-              + selection_section())
-    Path(out_path).write_text("\n".join(lines) + "\n", encoding="utf-8")
+              + selection_section() + weighting_section())
+    Path(out_path).write_text("\n".join(lines) + "\n", encoding="utf-8", newline="\n")
     return Path(out_path)
