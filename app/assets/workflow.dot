@@ -1,0 +1,23 @@
+digraph {
+    rankdir=TB; nodesep=0.35; ranksep=0.45;
+    edge [fontname="Helvetica", fontsize=11];
+    node [shape=box, style="rounded,filled", fillcolor="#eef2f7", fontname="Helvetica"];
+    data [label="Dataset\n(Landsat, pcap)"];
+    scale [label="Imputation\nand scaling"];
+    mi [label="Mutual information\n(mi.py, merge sort)"];
+    corr [label="Correlation graph\n(graph.py)"];
+    heap [label="Heap + BFS selection\n(heap.py, selection.py)"];
+    pca [label="PCA / KernelPCA / LDA\n(pca.py, scikit-learn)"];
+    clf [label="Classifier\n(kNN with KD-tree, RF,\nXGBoost, DT, SVM)"];
+    score [label="Macro-F1\n(cross-validation)"];
+    mh [label="10 metaheuristics\n(Mealpy)", fillcolor="#fdf1e3"];
+    data -> scale -> mi -> heap;
+    scale -> corr -> heap;
+    heap -> clf;
+    scale -> pca -> clf;
+    heap -> pca [style=dashed];
+    clf -> score;
+    score -> mh [label="fitness"];
+    mh -> heap [label="threshold t", style=dashed];
+    mh -> pca [label="components k", style=dashed];
+}
