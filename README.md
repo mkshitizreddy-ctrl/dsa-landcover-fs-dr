@@ -17,6 +17,7 @@ All core data structures (heap, merge sort, mutual information, graph search, Un
 ## Repository layout
 
 ```
+app/                   Streamlit app: Home.py, pages/, assets/ (workflow diagram)
 src/
   heap.py              indexed max-heap (push, pop, update, O(n) build)
   sorting.py           merge sort
@@ -39,7 +40,7 @@ src/
   pcap_fs_search.py    metaheuristic search over those settings, and feature-mask search
   pcap_fs_final_test.py  single test evaluation of the chosen selection settings
   pcap_class_weights.py  class weighting (none, sqrt, balanced) on the best configurations
-tests/                 unit tests (162 in total)
+tests/                 unit tests (178 in total)
 scripts/               experiment runners for studies 1 and 2, pcap pilot and timing
 results/               all experiment outputs (csv, txt, logs)
 report/                written reports
@@ -54,6 +55,22 @@ python -m pytest tests/ -q
 ```
 
 Run every command from the repository root. The experiments were run in a conda environment with Python 3.11, NumPy 1.26.0, scikit-learn 1.9.1, XGBoost 3.2.0 and Mealpy 3.0.3. Mealpy requires NumPy ≤ 1.26.0, so do not upgrade NumPy in this environment.
+
+## Running the app
+
+The graphical interface is a Streamlit app:
+
+```
+streamlit run app/Home.py
+```
+
+It opens at http://localhost:8501 with three pages:
+
+- **Home**: the workflow diagram of how the algorithms link, the three studies and key results.
+- **Feature Selection (Landsat)**: move the correlation threshold and watch mutual information, the correlation graph and heap + BFS (or Union-Find, or the naive method) choose features; optional PCA; scored live with our kNN on a validation split.
+- **Metaheuristic Search**: run any of the ten algorithms, or all of them, over the pcap grid or the pcap selection settings, and compare the result with the true best.
+
+The app only calls the project's functions, and its live results use validation data or saved cross-validation scores, never a test set.
 
 ## Running the code
 

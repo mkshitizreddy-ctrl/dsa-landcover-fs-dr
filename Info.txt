@@ -10,9 +10,15 @@ HOW TO USE THE CODE
 -----------------------------------------------------------------------
 
 Every experiment is a function. No script takes command-line arguments;
-every setting is a function parameter with a default value. The Streamlit
-app calls these functions. They can also be called from Python in the
-repository root:
+every setting is a function parameter with a default value.
+
+The graphical interface is a Streamlit app. Start it from the repository
+root and open http://localhost:8501 in a browser:
+
+    streamlit run app/Home.py
+
+The app calls the functions described in this file (see STREAMLIT APP
+below). They can also be called from Python in the repository root:
 
     import sys
     sys.path[:0] = ["src", "scripts"]
@@ -30,9 +36,10 @@ Two functions use a held-out test set and refuse to run a second time, so
 each test set is used only once: run_pso_final_test (Landsat sat.tst) and
 run_final_test (pcap test hashes).
 
-Tests: python -m pytest tests/ -q   (162 tests)
+Tests: python -m pytest tests/ -q   (178 tests)
 
 Folders:
+  app/       the Streamlit app (Home.py, pages/, assets/)
   src/       the algorithms and the shared modules
   scripts/   one function per experiment, built on the modules in src/
   tests/     unit tests; each algorithm is checked against a standard library
@@ -40,6 +47,74 @@ Folders:
   archive/   earlier versions, kept for the project history
   data/      Landsat files and the pcap splits (pcap.csv itself is not stored)
   report/    written reports
+
+
+-----------------------------------------------------------------------
+STREAMLIT APP
+-----------------------------------------------------------------------
+
+The app only calls functions from src/ and scripts/; it contains no
+algorithm of its own. Results shown live are computed on validation data or
+looked up from saved cross-validation scores, never from a test set.
+
+app/Home.py
+  The start page: what the project does, the workflow diagram of how the
+  algorithms link, the three studies, and three key results read from the
+  saved result files.
+
+app/common.py
+  setup_page(title, caption)   page title and layout
+  make_show(limit)             returns a show function that prints progress
+                               messages in a box on the page
+  read_result(relative_path)   reads a CSV from results/, cached
+  It also adds src/ and scripts/ to the import path for every page.
+
+app/assets/workflow.dot, workflow.svg
+  The workflow diagram. workflow.dot is the editable Graphviz source;
+  workflow.svg is drawn from it with: dot -Tsvg workflow.dot -o workflow.svg
+
+app/pages/1_Feature_Selection_Landsat.py
+  Live Study 1 pipeline on Landsat. Settings: threshold t, selection method
+  (heap + BFS, best feature per component with Union-Find, naive greedy),
+  optional PCA after selection with the variance to keep, and k for kNN.
+  Shows features kept, dimensions, validation accuracy, macro-F1 and kNN
+  query time against all 36 features, the mutual information of every
+  feature (kept or removed), and how many features each threshold keeps.
+  Uses scripts/landsat_explorer.py.
+
+app/pages/2_Metaheuristic_Search.py
+  Live metaheuristic search over the pcap grid (924 configurations) or the
+  pcap selection settings (1,644). "One run" runs one algorithm with a chosen
+  budget, population and seed and shows the best configuration found, its
+  true rank and the convergence curve. "Compare all algorithms" runs every
+  algorithm and random search over several seeds and shows hit rates.
+  Uses scripts/search_explorer.py.
+
+scripts/landsat_explorer.py
+  feature_names(n_features)    "pixel p, band b" names of the 36 features
+  validation_split(validation_fraction, seed)
+      Stratified 80/20 split of the Landsat training file, standardized with
+      the training statistics.
+  explore_statistics(X_train, y_train)   mutual information and |correlation|
+  select(scores, C, t, method)
+      Selected features, number of graph edges and connected components.
+  threshold_sweep(scores, C, thresholds, method)   features kept per t
+  evaluate(X_train, y_train, X_valid, y_valid, columns, k, pca_ratio)
+      Our PCA (optional) then our kNN; accuracy, macro-F1 and query time.
+  score_table(scores, selected)   features sorted by mutual information
+
+scripts/search_explorer.py
+  load_space(kind)     "grid" or "selection", from the saved CV scores
+  describe(cfg, kind)  a readable name for a configuration
+  search_with_curve(name, space, budget, population, seed, near)
+      One run of an algorithm (or RANDOM). Returns the result row and the
+      best score after each new configuration.
+  compare_algorithms(kind, budget, n_seeds, population, near, show)
+      Every algorithm and random search, without saving; returns a summary.
+
+Adding a page: put a file in app/pages/ whose name starts with a number
+(the order in the sidebar), start it with "from common import setup_page",
+and call setup_page(title).
 
 
 -----------------------------------------------------------------------
