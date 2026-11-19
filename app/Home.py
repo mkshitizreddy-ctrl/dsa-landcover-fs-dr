@@ -16,7 +16,7 @@ PAGES = """
 """
 
 setup_page("Graph-Based Feature Selection and Dimensionality Reduction",
-           "Data Structures and Algorithms project, M.Tech AIML, Bennett University. Team: Kshitiz, Yashovardhan Kushva.")
+           "Data Structures and Algorithms project, M.Tech AIML, Bennett University. Team: Kshitiz, Yashovardhan Kushwaha.")
 
 st.markdown("Feature selection keeps a subset of the original features; dimensionality reduction (PCA, KernelPCA, "
             "LDA) builds new ones. This project implements the selection side with its own data structures and "
