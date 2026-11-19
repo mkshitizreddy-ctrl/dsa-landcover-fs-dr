@@ -7,8 +7,9 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from stats_tests import (average_ranks, friedman_test, landsat_friedman, landsat_nemenyi,
-                         nemenyi_critical_difference, nemenyi_pairs, score_matrix)
+from stats_tests import (average_ranks, compare_with_baseline, friedman_test, holm_adjust, kruskal_test,
+                         landsat_friedman, landsat_nemenyi, nemenyi_critical_difference, nemenyi_pairs,
+                         pcap_against_random, pcap_kruskal, score_matrix)
 
 
 def make_runs(scores):
@@ -85,3 +86,39 @@ def test_landsat_nemenyi_compares_all_45_pairs():
     pairs = landsat_nemenyi("fs")
     assert len(pairs) == 45
     assert pairs.critical_difference.iloc[0] == pytest.approx(3.498, abs=1e-3)
+
+
+def test_holm_adjustment_matches_a_hand_worked_example():
+    assert holm_adjust([0.01, 0.04, 0.03]) == pytest.approx([0.03, 0.06, 0.06])
+    assert holm_adjust([0.5, 0.9]) == pytest.approx([1.0, 1.0])
+
+
+def test_kruskal_finds_a_clear_difference_and_refuses_two_groups():
+    rng = np.random.default_rng(1)
+    groups = {"A": rng.normal(0.0, 1, 20), "B": rng.normal(0.0, 1, 20), "C": rng.normal(3.0, 1, 20)}
+    assert kruskal_test(groups)["p_value"] < 0.001
+    with pytest.raises(ValueError, match="three algorithms"):
+        kruskal_test({"A": groups["A"], "B": groups["B"]})
+
+
+def test_baseline_comparison_flags_only_the_shifted_algorithm():
+    rng = np.random.default_rng(2)
+    groups = {"RANDOM": rng.normal(0, 1, 20), "SAME": rng.normal(0, 1, 20), "BETTER": rng.normal(3, 1, 20)}
+    table = compare_with_baseline(groups)
+    assert list(table.algorithm) == ["BETTER", "SAME"]
+    assert list(table.significant) == [True, False]
+    assert (table.p_holm >= table.p_value).all()
+
+
+def test_pcap_kruskal_gives_one_row_per_budget_for_both_search_spaces():
+    for space in ("grid", "selection"):
+        table = pcap_kruskal(space)
+        assert list(table.budget) == [100, 200, 400]
+        assert (table.n_algorithms == 11).all() and (table.runs_per_algorithm == 20).all()
+
+
+def test_pcap_against_random_compares_the_ten_metaheuristics():
+    table = pcap_against_random("grid", 200)
+    assert len(table) == 10 and "RANDOM" not in set(table.algorithm)
+    with pytest.raises(ValueError, match="Unknown search space"):
+        pcap_kruskal("other")

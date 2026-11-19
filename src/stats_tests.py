@@ -8,6 +8,9 @@ ROOT = Path(__file__).resolve().parents[1]
 LANDSAT_MH_PATH = ROOT / "results" / "mh_comparison_v1.csv"
 ALGORITHMS = ("GA", "DE", "PSO", "GWO", "WOA", "HHO", "ABC", "MFO", "SSA", "SMA")
 LANDSAT_TASKS = ("fs", "threshold", "components", "joint")
+PCAP_SEARCH_PATHS = {"grid": ROOT / "results" / "pcap_mh_v1" / "runs.csv",
+                     "selection": ROOT / "results" / "pcap_fs_search_v1" / "runs.csv"}
+RANDOM = "RANDOM"
 
 
 def score_matrix(runs, block_columns, algorithm_column, score_column, algorithms=None):
@@ -72,3 +75,67 @@ def landsat_friedman(path=LANDSAT_MH_PATH, score_column="macro_f1", tasks=LANDSA
         rows.append({"task": task, **friedman_test(table),
                      "best_algorithm": ranks.index[0], "best_mean_rank": float(ranks.iloc[0])})
     return pd.DataFrame(rows)
+
+
+def holm_adjust(p_values):
+    p = np.asarray(p_values, dtype=float)
+    adjusted = np.empty(len(p))
+    running = 0.0
+    for position, index in enumerate(np.argsort(p, kind="stable")):
+        running = max(running, min(1.0, (len(p) - position) * p[index]))
+        adjusted[index] = running
+    return adjusted
+
+
+def kruskal_test(groups):
+    if len(groups) < 3:
+        raise ValueError("The Kruskal-Wallis test needs at least three algorithms")
+    statistic, p_value = stats.kruskal(*groups.values())
+    return {"n_algorithms": len(groups), "runs_per_algorithm": int(min(len(g) for g in groups.values())),
+            "statistic": float(statistic), "p_value": float(p_value)}
+
+
+def compare_with_baseline(groups, baseline=RANDOM, alpha=0.05):
+    if baseline not in groups:
+        raise ValueError(f"Baseline {baseline!r} has no runs")
+    base = groups[baseline]
+    rows = []
+    for name, scores in groups.items():
+        if name == baseline:
+            continue
+        p_value = stats.mannwhitneyu(scores, base, alternative="two-sided").pvalue
+        rows.append({"algorithm": name, "mean": float(np.mean(scores)), "baseline_mean": float(np.mean(base)),
+                     "difference": float(np.mean(scores) - np.mean(base)), "p_value": float(p_value)})
+    table = pd.DataFrame(rows)
+    table["p_holm"] = holm_adjust(table.p_value)
+    table["significant"] = table.p_holm < alpha
+    return table.sort_values("difference", ascending=False, kind="stable").reset_index(drop=True)
+
+
+def pcap_runs(space, path=None):
+    if space not in PCAP_SEARCH_PATHS:
+        raise ValueError(f"Unknown search space {space!r}; choose from {list(PCAP_SEARCH_PATHS)}")
+    return pd.read_csv(PCAP_SEARCH_PATHS[space] if path is None else path)
+
+
+def pcap_groups(runs, budget, score_column="best_f1"):
+    chosen = runs[runs.budget == budget]
+    if chosen.empty:
+        raise ValueError(f"No runs with budget {budget}")
+    return {name: part[score_column].to_numpy() for name, part in chosen.groupby("algorithm")}
+
+
+def pcap_kruskal(space, path=None, score_column="best_f1"):
+    runs = pcap_runs(space, path)
+    rows = []
+    for budget in sorted(runs.budget.unique()):
+        groups = pcap_groups(runs, budget, score_column)
+        best = max(groups, key=lambda name: groups[name].mean())
+        rows.append({"space": space, "budget": int(budget), **kruskal_test(groups),
+                     "best_algorithm": best, "best_mean": float(groups[best].mean())})
+    return pd.DataFrame(rows)
+
+
+def pcap_against_random(space, budget, path=None, score_column="best_f1", alpha=0.05):
+    groups = pcap_groups(pcap_runs(space, path), budget, score_column)
+    return compare_with_baseline(groups, RANDOM, alpha)
