@@ -2,7 +2,7 @@
 
 Data Structures and Algorithms project, M.Tech AIML, Bennett University.
 
-**Team:** Kshitiz, Yashovardhan Kushva
+**Team:** Kshitiz, Yashovardhan Kushwaha
 
 The project studies feature selection and dimensionality reduction for classification in three parts:
 
