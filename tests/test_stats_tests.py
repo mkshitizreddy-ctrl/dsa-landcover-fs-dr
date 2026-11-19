@@ -7,10 +7,10 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from stats_tests import (average_ranks, compare_with_baseline, friedman_test, holm_adjust, kruskal_test,
+from stats_tests import (average_ranks, cd_groups, compare_with_baseline, friedman_test, holm_adjust, kruskal_test,
                          landsat_friedman, landsat_nemenyi, nemenyi_critical_difference, nemenyi_pairs,
                          landsat_rank_table, pcap_against_random, pcap_kruskal, run_statistical_tests,
-                         score_matrix)
+                         save_cd_diagrams, score_matrix)
 
 
 def make_runs(scores):
@@ -144,3 +144,20 @@ def test_run_statistical_tests_saves_every_table(tmp_path):
 def test_run_statistical_tests_writes_nothing_when_save_is_false(tmp_path):
     run_statistical_tests(save=False, out_dir=tmp_path / "none", show=lambda message: None)
     assert not (tmp_path / "none").exists()
+
+
+def test_cd_groups_join_only_ranks_within_the_critical_difference():
+    assert cd_groups([1.0, 1.5, 2.0, 5.0, 5.2], 1.0) == [(0, 2), (3, 4)]
+    assert cd_groups([1.0, 3.0, 5.0], 1.0) == []
+
+
+def test_cd_groups_drop_groups_inside_an_earlier_group():
+    assert cd_groups([1.0, 2.0, 2.5, 3.5], 2.0) == [(0, 2), (1, 3)]
+
+
+def test_save_cd_diagrams_writes_one_png_per_task(tmp_path):
+    run_statistical_tests(out_dir=tmp_path, show=lambda message: None)
+    paths = save_cd_diagrams(tmp_path / "landsat_ranks.csv", tmp_path, show=lambda message: None)
+    assert [p.name for p in paths] == ["cd_landsat_fs.png", "cd_landsat_threshold.png",
+                                       "cd_landsat_components.png", "cd_landsat_joint.png"]
+    assert all(p.stat().st_size > 1000 for p in paths)

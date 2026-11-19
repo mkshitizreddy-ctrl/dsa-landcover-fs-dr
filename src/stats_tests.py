@@ -1,8 +1,12 @@
 from pathlib import Path
 
+import matplotlib
 import numpy as np
 import pandas as pd
 from scipy import stats
+
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
 
 ROOT = Path(__file__).resolve().parents[1]
 LANDSAT_MH_PATH = ROOT / "results" / "mh_comparison_v1.csv"
@@ -173,3 +177,69 @@ def run_statistical_tests(save=True, out_dir=STATS_DIR, alpha=0.05, show=print):
             table.to_csv(out_dir / f"{name}.csv", index=False)
         show(f"Saved {len(tables)} tables to {out_dir}")
     return tables
+
+
+def cd_groups(ranks, cd):
+    values = np.sort(np.asarray(ranks, dtype=float))
+    groups = []
+    last_end = 0
+    for start in range(len(values)):
+        end = start
+        while end + 1 < len(values) and values[end + 1] - values[start] <= cd:
+            end += 1
+        if end > start and end > last_end:
+            groups.append((start, end))
+            last_end = end
+    return groups
+
+
+def plot_critical_difference(ranks, cd, title=None):
+    ranks = pd.Series(ranks, dtype=float).sort_values()
+    names, values = list(ranks.index), ranks.to_numpy()
+    k = len(values)
+    half = (k + 1) // 2
+    groups = cd_groups(values, cd)
+    fig, ax = plt.subplots(figsize=(8, 1.6 + 0.32 * half))
+    ax.set_xlim(0, k + 1)
+    ax.set_ylim(-(half + 1.2), 2.2)
+    ax.axis("off")
+    ax.hlines(0, 1, k, color="black", linewidth=1)
+    for tick in range(1, k + 1):
+        ax.vlines(tick, 0, 0.18, color="black", linewidth=1)
+        ax.text(tick, 0.3, str(tick), ha="center", va="bottom", fontsize=9)
+    ax.hlines(1.3, 1, 1 + cd, color="black", linewidth=1.5)
+    ax.vlines([1, 1 + cd], 1.2, 1.4, color="black", linewidth=1.5)
+    ax.text(1 + cd / 2, 1.5, f"CD = {cd:.2f}", ha="center", va="bottom", fontsize=9)
+    for i, (name, value) in enumerate(zip(names, values)):
+        left = i < half
+        row = -(i + 1) if left else -(k - i)
+        edge = 0.6 if left else k + 0.4
+        ax.plot([value, value, edge], [0, row, row], color="black", linewidth=0.8)
+        ax.text(edge - 0.08 if left else edge + 0.08, row, f"{name} ({value:.2f})",
+                ha="right" if left else "left", va="center", fontsize=9)
+    for level, (start, end) in enumerate(groups):
+        y = -0.35 - 0.2 * level
+        ax.hlines(y, values[start] - 0.05, values[end] + 0.05, color="#c0392b", linewidth=3)
+    if title:
+        ax.set_title(title, fontsize=10, loc="left")
+    fig.tight_layout()
+    return fig
+
+
+def save_cd_diagrams(ranks_path=STATS_DIR / "landsat_ranks.csv", out_dir=STATS_DIR, show=print):
+    table = pd.read_csv(ranks_path)
+    out_dir = Path(out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    titles = {"fs": "Feature selection", "threshold": "Tuning the threshold t",
+              "components": "Tuning the components k", "joint": "Tuning t and k together"}
+    paths = []
+    for task, part in table.groupby("task", sort=False):
+        ranks = part.set_index("algorithm").average_rank
+        fig = plot_critical_difference(ranks, float(part.critical_difference.iloc[0]),
+                                       f"Landsat: {titles.get(task, task)} (average rank, 1 = best)")
+        path = out_dir / f"cd_landsat_{task}.png"
+        fig.savefig(path, dpi=200, bbox_inches="tight")
+        plt.close(fig)
+        paths.append(path)
+        show(f"Saved {path}")
+    return paths
