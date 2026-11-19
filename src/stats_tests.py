@@ -34,11 +34,40 @@ def friedman_test(table):
             "statistic": float(statistic), "p_value": float(p_value)}
 
 
-def landsat_friedman(path=LANDSAT_MH_PATH, score_column="macro_f1", tasks=LANDSAT_TASKS):
+def nemenyi_critical_difference(n_algorithms, n_blocks, alpha=0.05):
+    if n_algorithms < 2 or n_blocks < 1:
+        raise ValueError("The Nemenyi test needs at least two algorithms and one block")
+    q = stats.studentized_range.ppf(1 - alpha, n_algorithms, np.inf) / np.sqrt(2)
+    return float(q * np.sqrt(n_algorithms * (n_algorithms + 1) / (6 * n_blocks)))
+
+
+def nemenyi_pairs(table, alpha=0.05, higher_is_better=True):
+    ranks = average_ranks(table, higher_is_better)
+    cd = nemenyi_critical_difference(table.shape[1], table.shape[0], alpha)
+    names = list(ranks.index)
+    rows = []
+    for i, better in enumerate(names):
+        for worse in names[i + 1:]:
+            gap = float(ranks[worse] - ranks[better])
+            rows.append({"better": better, "worse": worse, "rank_better": float(ranks[better]),
+                         "rank_worse": float(ranks[worse]), "rank_gap": gap, "critical_difference": cd,
+                         "significant": gap > cd})
+    return pd.DataFrame(rows)
+
+
+def landsat_table(task, path=LANDSAT_MH_PATH, score_column="macro_f1"):
     runs = pd.read_csv(path)
+    return score_matrix(runs[runs.task == task], ["seed", "outer_fold"], "method", score_column, ALGORITHMS)
+
+
+def landsat_nemenyi(task, path=LANDSAT_MH_PATH, score_column="macro_f1", alpha=0.05):
+    return nemenyi_pairs(landsat_table(task, path, score_column), alpha)
+
+
+def landsat_friedman(path=LANDSAT_MH_PATH, score_column="macro_f1", tasks=LANDSAT_TASKS):
     rows = []
     for task in tasks:
-        table = score_matrix(runs[runs.task == task], ["seed", "outer_fold"], "method", score_column, ALGORITHMS)
+        table = landsat_table(task, path, score_column)
         ranks = average_ranks(table)
         rows.append({"task": task, **friedman_test(table),
                      "best_algorithm": ranks.index[0], "best_mean_rank": float(ranks.iloc[0])})
