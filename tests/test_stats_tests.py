@@ -9,7 +9,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from stats_tests import (average_ranks, compare_with_baseline, friedman_test, holm_adjust, kruskal_test,
                          landsat_friedman, landsat_nemenyi, nemenyi_critical_difference, nemenyi_pairs,
-                         pcap_against_random, pcap_kruskal, score_matrix)
+                         landsat_rank_table, pcap_against_random, pcap_kruskal, run_statistical_tests,
+                         score_matrix)
 
 
 def make_runs(scores):
@@ -122,3 +123,24 @@ def test_pcap_against_random_compares_the_ten_metaheuristics():
     assert len(table) == 10 and "RANDOM" not in set(table.algorithm)
     with pytest.raises(ValueError, match="Unknown search space"):
         pcap_kruskal("other")
+
+
+def test_landsat_rank_table_has_ten_algorithms_per_task_and_ranks_averaging_five_and_a_half():
+    table = landsat_rank_table()
+    assert len(table) == 40
+    assert table.groupby("task").average_rank.mean().tolist() == pytest.approx([5.5] * 4)
+
+
+def test_run_statistical_tests_saves_every_table(tmp_path):
+    messages = []
+    tables = run_statistical_tests(out_dir=tmp_path, show=messages.append)
+    expected = {"landsat_friedman", "landsat_ranks", "landsat_nemenyi", "pcap_kruskal", "pcap_vs_random"}
+    assert set(tables) == expected
+    assert {p.stem for p in tmp_path.glob("*.csv")} == expected
+    assert len(tables["landsat_nemenyi"]) == 4 * 45 and len(tables["pcap_vs_random"]) == 2 * 3 * 10
+    assert messages[-1].startswith("Saved 5 tables")
+
+
+def test_run_statistical_tests_writes_nothing_when_save_is_false(tmp_path):
+    run_statistical_tests(save=False, out_dir=tmp_path / "none", show=lambda message: None)
+    assert not (tmp_path / "none").exists()

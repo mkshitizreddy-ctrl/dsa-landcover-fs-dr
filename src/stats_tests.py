@@ -11,6 +11,7 @@ LANDSAT_TASKS = ("fs", "threshold", "components", "joint")
 PCAP_SEARCH_PATHS = {"grid": ROOT / "results" / "pcap_mh_v1" / "runs.csv",
                      "selection": ROOT / "results" / "pcap_fs_search_v1" / "runs.csv"}
 RANDOM = "RANDOM"
+STATS_DIR = ROOT / "results" / "stats_v1"
 
 
 def score_matrix(runs, block_columns, algorithm_column, score_column, algorithms=None):
@@ -139,3 +140,36 @@ def pcap_kruskal(space, path=None, score_column="best_f1"):
 def pcap_against_random(space, budget, path=None, score_column="best_f1", alpha=0.05):
     groups = pcap_groups(pcap_runs(space, path), budget, score_column)
     return compare_with_baseline(groups, RANDOM, alpha)
+
+
+def landsat_rank_table(tasks=LANDSAT_TASKS, path=LANDSAT_MH_PATH, score_column="macro_f1", alpha=0.05):
+    rows = []
+    for task in tasks:
+        table = landsat_table(task, path, score_column)
+        cd = nemenyi_critical_difference(table.shape[1], table.shape[0], alpha)
+        for algorithm, rank in average_ranks(table).items():
+            rows.append({"task": task, "algorithm": algorithm, "average_rank": float(rank),
+                         "mean_score": float(table[algorithm].mean()), "critical_difference": cd})
+    return pd.DataFrame(rows)
+
+
+def run_statistical_tests(save=True, out_dir=STATS_DIR, alpha=0.05, show=print):
+    tables = {"landsat_friedman": landsat_friedman(),
+              "landsat_ranks": landsat_rank_table(alpha=alpha),
+              "landsat_nemenyi": pd.concat([landsat_nemenyi(task, alpha=alpha).assign(task=task)
+                                            for task in LANDSAT_TASKS], ignore_index=True),
+              "pcap_kruskal": pd.concat([pcap_kruskal(space) for space in PCAP_SEARCH_PATHS], ignore_index=True)}
+    comparisons = []
+    for space in PCAP_SEARCH_PATHS:
+        for budget in sorted(pcap_runs(space).budget.unique()):
+            comparisons.append(pcap_against_random(space, budget, alpha=alpha).assign(space=space, budget=int(budget)))
+    tables["pcap_vs_random"] = pd.concat(comparisons, ignore_index=True)
+    for name, table in tables.items():
+        show(f"{name}: {len(table)} rows")
+    if save:
+        out_dir = Path(out_dir)
+        out_dir.mkdir(parents=True, exist_ok=True)
+        for name, table in tables.items():
+            table.to_csv(out_dir / f"{name}.csv", index=False)
+        show(f"Saved {len(tables)} tables to {out_dir}")
+    return tables
