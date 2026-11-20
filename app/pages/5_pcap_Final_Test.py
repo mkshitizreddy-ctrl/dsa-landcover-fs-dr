@@ -29,19 +29,16 @@ row[1].metric("Best test macro-F1, extraction", f"{best['extraction'].test_f1_ma
 row[2].metric("Accuracy of always predicting Mirai", f"{majority_accuracy(best_confusion):.4f}")
 
 st.subheader("Held-out test results")
-left, right = st.columns([3, 2])
-with left:
-    shown = results.rename(columns=HEADERS)
-    st.dataframe(shown.style.format({c: "{:.4f}" for c in SCORES}), hide_index=True, width="stretch", height=420)
-with right:
-    bars = results.assign(name=results.scaler + " + " + results.setting + " + " + results.classifier)
-    chart = alt.Chart(bars).mark_bar().encode(
-        x=alt.X("test_f1_macro:Q", title="Test macro-F1"),
-        y=alt.Y("name:N", sort="-x", title=None),
-        color=alt.Color("family:N", scale=COLORS, title=None),
-        tooltip=["name", "family", "n_features", alt.Tooltip("test_f1_macro:Q", format=".4f"),
-                 alt.Tooltip("test_accuracy:Q", format=".4f")])
-    st.altair_chart(chart.properties(height=420), width="stretch")
+shown = results.rename(columns=HEADERS)
+st.dataframe(shown.style.format({c: "{:.4f}" for c in SCORES}), hide_index=True, width="stretch")
+bars = results.assign(name=results.scaler + " + " + results.setting + " + " + results.classifier)
+chart = alt.Chart(bars).mark_bar().encode(
+    x=alt.X("test_f1_macro:Q", title="Test macro-F1"),
+    y=alt.Y("name:N", sort="-x", title=None, axis=alt.Axis(labelLimit=400)),
+    color=alt.Color("family:N", scale=COLORS, title=None),
+    tooltip=["name", "family", "n_features", alt.Tooltip("test_f1_macro:Q", format=".4f"),
+             alt.Tooltip("test_accuracy:Q", format=".4f")])
+st.altair_chart(chart.properties(height=420), width="stretch")
 
 st.subheader("Which families are recognised")
 files = confusion_files()
