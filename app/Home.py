@@ -13,6 +13,10 @@ STUDIES = """
 PAGES = """
 - **Feature Selection (Landsat)**: move the correlation threshold and watch mutual information, the correlation graph and heap + BFS choose the features, then score them with our kNN.
 - **Metaheuristic Search**: run any of the ten algorithms on the pcap configuration spaces and compare its result with the true best.
+- **pcap Data**: how the packets are split by Hash, the families and their test counts, and the 36 features, read from the saved splits.
+- **pcap Grid Results**: filter and rank the 924 cross-validated configurations and see the best score at every component count k.
+- **pcap Final Test**: held-out test results with selection and extraction side by side, a confusion matrix for any tested configuration, and class weighting.
+- **Statistical Tests**: Friedman and Nemenyi tests with critical-difference diagrams for Landsat, and every algorithm against random search for pcap.
 """
 
 setup_page("Graph-Based Feature Selection and Dimensionality Reduction",
@@ -23,7 +27,7 @@ st.markdown("Feature selection keeps a subset of the original features; dimensio
             "compares both on two datasets, with metaheuristics choosing the settings.")
 
 st.subheader("How the algorithms link")
-st.image(str(ROOT / "app" / "assets" / "workflow.svg"), width=520)
+st.image(str(ROOT / "app" / "assets" / "workflow.svg"), width=700)
 st.markdown("Every study runs this pipeline. The threshold *t* decides which features survive heap + BFS, *k* "
             "decides how many components PCA keeps, and the metaheuristics choose these settings using the "
             "cross-validated macro-F1 as their fitness.")
