@@ -36,7 +36,7 @@ Two functions use a held-out test set and refuse to run a second time, so
 each test set is used only once: run_pso_final_test (Landsat sat.tst) and
 run_final_test (pcap test hashes).
 
-Tests: python -m pytest tests/ -q   (178 tests)
+Tests: python -m pytest tests/ -q   (213 tests)
 
 Folders:
   app/       the Streamlit app (Home.py, pages/, assets/)
@@ -111,6 +111,63 @@ scripts/search_explorer.py
       best score after each new configuration.
   compare_algorithms(kind, budget, n_seeds, population, near, show)
       Every algorithm and random search, without saving; returns a summary.
+
+app/pages/3_pcap_Data.py
+  The malware dataset without pcap.csv: packets used, features, families,
+  the size of every part of the split (development, test, cross-validation
+  sample, each fold), test packets per family as a bar chart, the accuracy
+  of always predicting the largest family, and the 36 feature names.
+  Uses scripts/results_explorer.py.
+
+app/pages/4_pcap_Grid_Results.py
+  The 924 saved grid configurations. Sidebar filters: scalers, reduction
+  methods, classifiers (an empty filter keeps every option), the metric to
+  rank by (macro-F1, balanced accuracy, accuracy) and how many to list.
+  Shows the best configuration, the top configurations as a table, and the
+  best score at each component count k for every reduction method.
+
+app/pages/5_pcap_Final_Test.py
+  The held-out test results of every configuration chosen by
+  cross-validation, selection and extraction side by side, as a table and
+  a bar chart; a confusion matrix of any tested configuration, shown as the
+  percentage of each true family; and the class-weighting results.
+
+app/pages/6_Statistical_Tests.py
+  The tests of src/stats_tests.py, read from results/stats_v1/. Landsat:
+  the Friedman table, and for a chosen task its critical-difference diagram
+  and the pairs that differ significantly. pcap: the Kruskal-Wallis table,
+  and for a chosen search space and budget each algorithm against random
+  search.
+
+scripts/results_explorer.py
+  Reads the saved results for pages 3 to 6. It only reads files; nothing is
+  trained or recomputed.
+  split_summary(splits_path)
+      Sizes of every part of the saved pcap split, the family names, the 36
+      features and the constant columns that were dropped.
+  read_confusion(path)          a saved confusion matrix (true x predicted)
+  class_counts(confusion)       packets of each true family
+  majority_accuracy(confusion)  accuracy of always predicting the largest
+                                family
+  row_percentages(confusion)    each row as a percentage of that family;
+                                an empty row stays 0
+  confusion_files(folders)      every saved test confusion matrix, by a
+                                readable name such as "Normalizer PCA k14 DT"
+  load_grid(path)               results/pcap_grid_v1/grid_summary.csv
+  filter_grid(grid, scalers, reductions, classifiers)
+      Keeps the chosen options; an empty or None filter keeps everything.
+  top_configs(grid, n, metric)  the n best configurations by metric
+  best_by_k(grid, metric)       the best score at each (reduction, k)
+  describe_setting(method, param)
+      A readable setting, such as "heap + BFS, t = 0.58" or "PCA, k = 14".
+  final_test_comparison(path)
+      results/pcap_fs_final_v1/comparison_with_grid_test.csv with a
+      selection/extraction column, sorted by test macro-F1.
+  weighting_table(path, metric)
+      The class-weighting summary with one column per scheme (none, sqrt,
+      balanced).
+  stats_tables(folder) / cd_figures(folder)
+      Every table and critical-difference figure in results/stats_v1/.
 
 Adding a page: put a file in app/pages/ whose name starts with a number
 (the order in the sidebar), start it with "from common import setup_page",
@@ -991,3 +1048,121 @@ file, results/pcap_results.txt. It only reads result files.
   selection_tag(row)     the file name used for a tested selection setting
   weighting_section()    section 7: class weighting (pcap_class_weights.py)
   write_pcap_report(out_path)
+
+
+-----------------------------------------------------------------------
+STATISTICAL TESTS
+-----------------------------------------------------------------------
+
+Checks whether the differences between the metaheuristics are real or
+could come from chance. Only saved result files are read; nothing is
+retrained, and the test sets are not touched.
+
+Which test, and why:
+  Landsat (results/mh_comparison_v1.csv): every algorithm ran on the same
+  5 outer folds with the same 3 seeds, so the 15 runs are paired. Each run
+  is a block; the algorithms are ranked within each block (1 = best).
+    Friedman test        do the algorithms differ at all?
+    Nemenyi test         which pairs differ? Two algorithms differ when
+                         their average ranks are further apart than the
+                         critical difference
+                         CD = q * sqrt(k (k + 1) / (6 N)),
+                         k algorithms, N blocks, q from the studentized
+                         range distribution. For k = 10, N = 15: CD = 3.50.
+  pcap (results/pcap_mh_v1/runs.csv for the grid, results/pcap_fs_search_v1/
+  runs.csv for the selection settings): each algorithm ran 20 times with
+  its own seeds on one fixed search space, so runs are independent, not
+  paired.
+    Kruskal-Wallis test  do the 11 methods (10 algorithms and random
+                         search) differ at all, at each budget?
+    Mann-Whitney U test  each algorithm against random search, two-sided,
+                         on the best F1 each run found
+    Holm correction      for testing ten algorithms at once
+
+Findings:
+  Landsat: the algorithms differ for feature selection (p = 0.0001) and for
+  tuning t and k together (p = 0.002), not for t alone (p = 0.07) or k alone
+  (p = 0.73). For feature selection PSO has the best average rank (3.73),
+  but only SMA differs significantly from the top six.
+  pcap: no algorithm finds a significantly better F1 than random search at
+  any budget; SMA always, and HHO, WOA, MFO, GA and DE at larger budgets,
+  are significantly worse. This concerns the F1 reached, not how often the
+  exact best configuration is hit.
+
+
+src/stats_tests.py
+------------------
+Functions, paired runs (Landsat):
+  score_matrix(runs, block_columns, algorithm_column, score_column,
+               algorithms)
+      One row per block, one column per algorithm. Stops with an error if
+      any algorithm lacks a score in any block.
+  average_ranks(table, higher_is_better)
+      Ranks the algorithms within each block (ties share the average rank)
+      and averages them; sorted best first.
+  friedman_test(table)
+      scipy's Friedman test. Needs at least three algorithms and two
+      blocks. Returns blocks, algorithms, statistic and p-value.
+  nemenyi_critical_difference(n_algorithms, n_blocks, alpha)
+      The critical difference CD above.
+  nemenyi_pairs(table, alpha, higher_is_better)
+      Every pair of algorithms, better one first, with both average ranks,
+      the gap, the CD, and whether the gap exceeds the CD.
+  landsat_table(task, path, score_column)
+      The score matrix of one Landsat task (fs, threshold, components,
+      joint); blocks are (seed, outer_fold), scores are outer-fold macro-F1.
+  landsat_friedman(path, score_column, tasks)
+      Friedman test for each task, with the best algorithm by average rank.
+  landsat_nemenyi(task, path, score_column, alpha)
+      Nemenyi pairs for one task.
+  landsat_rank_table(tasks, path, score_column, alpha)
+      Average rank and mean score of every algorithm for each task, with the
+      CD; the input of the critical-difference diagrams.
+
+Functions, independent runs (pcap):
+  holm_adjust(p_values)
+      Holm's step-down correction, written out: sort the p-values, multiply
+      the i-th smallest by (m - i + 1), keep the results non-decreasing and
+      at most 1, and put them back in the original order.
+  kruskal_test(groups)
+      scipy's Kruskal-Wallis test on {algorithm: scores}; at least three
+      groups.
+  compare_with_baseline(groups, baseline, alpha)
+      Each algorithm against the baseline (RANDOM) with a Mann-Whitney U
+      test; Holm-adjusted p-values; significant when below alpha. Sorted by
+      the difference in mean, best first.
+  pcap_runs(space, path)
+      The saved runs of "grid" or "selection".
+  pcap_groups(runs, budget, score_column)
+      {algorithm: best F1 of each run} at one budget.
+  pcap_kruskal(space, path, score_column)
+      Kruskal-Wallis test at every budget, with the best method by mean.
+  pcap_against_random(space, budget, path, score_column, alpha)
+      compare_with_baseline at one budget.
+
+Saving and figures:
+  run_statistical_tests(save, out_dir, alpha, show)
+      Runs everything above and returns the tables. save=True writes
+      results/stats_v1/: landsat_friedman.csv, landsat_ranks.csv,
+      landsat_nemenyi.csv, pcap_kruskal.csv, pcap_vs_random.csv.
+  cd_groups(ranks, cd)
+      Which algorithms to join with a bar: walks through the sorted ranks,
+      extends each group while it stays within the CD, and skips a group
+      that lies inside an earlier one. Returns (first, last) positions.
+  plot_critical_difference(ranks, cd, title)
+      One critical-difference diagram: the rank axis, every algorithm at its
+      average rank, a bar joining algorithms that are not significantly
+      different, and a scale bar showing the CD. Returns the figure.
+  save_cd_diagrams(ranks_path, out_dir, show)
+      One PNG per Landsat task: results/stats_v1/cd_landsat_<task>.png.
+
+To recreate results/stats_v1/ from the repository root:
+
+    import sys
+    sys.path[:0] = ["src", "scripts"]
+    from stats_tests import run_statistical_tests, save_cd_diagrams
+    run_statistical_tests()
+    save_cd_diagrams()
+
+Tests: tests/test_stats_tests.py (22 tests), tests/test_results_explorer.py
+(13 tests).
