@@ -2,5 +2,5 @@ Stage,Theory,Growth in d (synthetic),Growth in n (Landsat),Growth in n (pcap)
 Mutual information,O(n d),,1.02,1.01
 Correlation matrix,O(n d^2),1.31,0.98,1.05
 Correlation graph,O(d^2),2.03,0.02,-0.01
-Heap + BFS selection,O((d + E) log d),1.17,0.03,0.0
+Heap + BFS selection,O(d log d + E),1.17,0.03,0.0
 Naive selection,O(d x kept),1.87,0.06,-0.04

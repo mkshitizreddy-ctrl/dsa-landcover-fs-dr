@@ -238,7 +238,7 @@ def table_complexity(out_dir):
     rows = [("Mutual information", "O(n d)", None, "mi_s"),
             ("Correlation matrix", "O(n d^2)", "corr_s", "corr_s"),
             ("Correlation graph", "O(d^2)", "graph_s", "graph_s"),
-            ("Heap + BFS selection", "O((d + E) log d)", "heap_bfs_select_s", "heap_bfs_select_s"),
+            ("Heap + BFS selection", "O(d log d + E)", "heap_bfs_select_s", "heap_bfs_select_s"),
             ("Naive selection", "O(d x kept)", "naive_s", "naive_s")]
     table = pd.DataFrame([{
         "Stage": stage, "Theory": theory,
