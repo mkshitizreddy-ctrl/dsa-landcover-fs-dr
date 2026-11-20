@@ -43,9 +43,9 @@ with right:
         st.info("No pair of algorithms differs significantly on this task.")
     else:
         st.dataframe(significant[["better", "worse", "rank_better", "rank_worse", "rank_gap"]]
-                     .rename(columns={"better": "Better", "worse": "Worse", "rank_better": "Rank",
-                                      "rank_worse": "Rank ", "rank_gap": "Gap"})
-                     .style.format({"Rank": "{:.2f}", "Rank ": "{:.2f}", "Gap": "{:.2f}"}),
+                     .rename(columns={"better": "Better", "worse": "Worse", "rank_better": "Better rank",
+                                      "rank_worse": "Worse rank", "rank_gap": "Gap"})
+                     .style.format({"Better rank": "{:.2f}", "Worse rank": "{:.2f}", "Gap": "{:.2f}"}),
                      hide_index=True, width="stretch")
 
 st.header("pcap: ten algorithms against random search")
