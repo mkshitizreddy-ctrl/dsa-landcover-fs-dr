@@ -4,7 +4,7 @@ import altair as alt
 import streamlit as st
 
 from results_explorer import (BEST_CONFUSION_PATH, confusion_files, final_test_comparison, majority_accuracy,
-                              read_confusion, row_percentages, weighting_table)
+                              read_confusion, row_percentages, sample_level_summary, weighting_table)
 
 HEADERS = {"family": "Family", "scaler": "Scaler", "setting": "Setting", "classifier": "Classifier",
            "n_features": "Inputs", "chosen_as": "Chosen as", "cv_f1_macro": "CV macro-F1",
@@ -69,3 +69,44 @@ st.dataframe(weights.style.format({c: "{:.4f}" for c in ["No weights", "Square-r
              hide_index=True, width="stretch")
 st.caption("Cross-validation macro-F1 of the best configurations with and without class weights. The changes are "
            "small and mixed, so weighting does not fix the rare families.")
+
+st.subheader("Whole malware samples instead of packets")
+st.markdown("All packets of one Hash come from one malware sample, so they can be summarised into one row: the mean, "
+            "standard deviation, minimum and maximum of each feature and the packet count. The best classifier by "
+            "cross-validation on these samples (RF) was scored once on the 1,101 test samples, using the same "
+            "development and test hashes as above.")
+comparison, recall = sample_level_summary()
+packet, sample = comparison.set_index("level").loc["packet"], comparison.set_index("level").loc["sample"]
+row = st.columns(3)
+row[0].metric("Test macro-F1, samples", f"{sample.test_f1_macro:.4f}",
+              f"{sample.test_f1_macro - packet.test_f1_macro:+.4f} vs packets")
+row[1].metric("Test accuracy, samples", f"{sample.test_accuracy:.4f}",
+              f"{sample.test_accuracy - packet.test_accuracy:+.4f} vs packets")
+row[2].metric("Test samples", f"{int(recall.test_samples.sum()):,}")
+left, right = st.columns([2, 3])
+with left:
+    st.dataframe(comparison.rename(columns={"level": "Unit", "configuration": "Configuration",
+                                            "cv_f1_macro": "CV macro-F1", "test_f1_macro": "Test macro-F1",
+                                            "test_balanced_accuracy": "Test balanced acc.",
+                                            "test_accuracy": "Test accuracy"})
+                 .style.format({c: "{:.4f}" for c in SCORES}), hide_index=True, width="stretch")
+    st.dataframe(recall.rename(columns={"family": "Family", "test_samples": "Test samples",
+                                        "sample_recall": "Recall, samples", "packet_recall": "Recall, packets"})
+                 .style.format({"Recall, samples": "{:.2f}", "Recall, packets": "{:.2f}"}),
+                 hide_index=True, width="stretch")
+with right:
+    bars = recall.melt(id_vars=["family", "test_samples"], value_vars=["sample_recall", "packet_recall"],
+                       var_name="unit", value_name="recall")
+    bars["unit"] = bars.unit.map({"sample_recall": "samples", "packet_recall": "packets"})
+    chart = alt.Chart(bars).mark_bar().encode(
+        x=alt.X("family:N", sort=list(recall.family), title=None),
+        xOffset=alt.XOffset("unit:N", sort=["packets", "samples"]),
+        y=alt.Y("recall:Q", title="Test recall", scale=alt.Scale(domain=[0, 1])),
+        color=alt.Color("unit:N", scale=alt.Scale(domain=["packets", "samples"], range=["#d9822b", "#2f6db5"]),
+                        title=None),
+        tooltip=["family", "unit", alt.Tooltip("recall:Q", format=".2f"), "test_samples"])
+    st.altair_chart(chart.properties(height=320), width="stretch")
+st.caption("Whole samples give the best test macro-F1 and accuracy in the project, but Gafgyt (4 development and "
+           "1 test sample) and Generic (22 and 7) are still never recognised: there are too few malware samples of "
+           "these families to learn from. Unknown is recognised less often as whole samples (0.02) than as packets "
+           "(0.17).")
