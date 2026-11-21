@@ -80,3 +80,25 @@ st.dataframe(versus[["algorithm", "mean", "baseline_mean", "difference", "p_valu
 st.caption("On the best F1 found, no metaheuristic is significantly better than random search at any budget; "
            "several are significantly worse. This measures the score reached, not how often the exact best "
            "configuration is hit.")
+
+st.subheader("How often is the exact best configuration found?")
+st.markdown("Each run either finds the best configuration of its search space or does not. **Fisher's exact test** "
+            "compares each algorithm's hits with random search's hits in the same 20 runs, with the **Holm "
+            "correction** again for ten comparisons. Same search space and budget as above.")
+hits = tables["pcap_hit_rates"]
+hits = hits[(hits.space == space) & (hits.budget == budget)]
+row = st.columns(2)
+row[0].metric("Hit the best significantly more often", len(hits[hits.significant & (hits.difference > 0)]))
+row[1].metric("Hit the best significantly less often", len(hits[hits.significant & (hits.difference < 0)]))
+shown = hits.assign(found=hits.hits.astype(str) + " of " + hits.runs.astype(str),
+                    random=hits.baseline_hits.astype(str) + " of " + hits.baseline_runs.astype(str))
+st.dataframe(shown[["algorithm", "found", "hit_rate", "random", "baseline_rate", "p_value", "p_holm", "significant"]]
+             .rename(columns={"algorithm": "Algorithm", "found": "Runs that hit the best", "hit_rate": "Hit rate",
+                              "random": "Random search", "baseline_rate": "Random hit rate", "p_value": "p-value",
+                              "p_holm": "Holm p-value", "significant": "Significant"})
+             .style.format({"Hit rate": "{:.0%}", "Random hit rate": "{:.0%}", "p-value": "{:.4f}",
+                            "Holm p-value": "{:.4f}"}),
+             hide_index=True, width="stretch")
+st.caption("A higher hit rate is not proven by a few extra hits in 20 runs: on the grid at budget 400, GWO hit the "
+           "best in 16 runs and random search in 8, which is not significant after the Holm correction. Only SSA on "
+           "the selection settings at budget 400 hits the best significantly more often than random search.")
