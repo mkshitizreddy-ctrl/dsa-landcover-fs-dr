@@ -40,7 +40,7 @@ src/
   pcap_fs_search.py    metaheuristic search over those settings, and feature-mask search
   pcap_fs_final_test.py  single test evaluation of the chosen selection settings
   pcap_class_weights.py  class weighting (none, sqrt, balanced) on the best configurations
-tests/                 unit tests (215 in total)
+tests/                 unit tests (228 in total)
 scripts/               experiment runners for studies 1 and 2, pcap pilot and timing
 results/               all experiment outputs (csv, txt, logs)
 report/                written reports

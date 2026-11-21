@@ -36,7 +36,7 @@ Two functions use a held-out test set and refuse to run a second time, so
 each test set is used only once: run_pso_final_test (Landsat sat.tst) and
 run_final_test (pcap test hashes).
 
-Tests: python -m pytest tests/ -q   (215 tests)
+Tests: python -m pytest tests/ -q   (228 tests)
 
 Folders:
   app/       the Streamlit app (Home.py, pages/, assets/)
@@ -1166,6 +1166,115 @@ To recreate results/stats_v1/ from the repository root:
 
 Tests: tests/test_stats_tests.py (22 tests), tests/test_results_explorer.py
 (13 tests).
+
+
+-----------------------------------------------------------------------
+SAMPLE-LEVEL CLASSIFICATION
+-----------------------------------------------------------------------
+
+Classifies whole malware samples instead of single packets. All packets
+of one Hash come from one sample of one family, so they are summarised
+into one row per Hash and the family is predicted for that row. Uses
+data/pcap.csv (not on GitHub) and the saved split data/pcap_splits.npz,
+so the development and test hashes and the 4 cross-validation folds are
+the same as in the packet-level study.
+
+Samples:
+  Each Hash becomes one row: the mean, standard deviation, minimum and
+  maximum of each of the 36 features, and its number of packets, giving
+  145 columns. Development: 4,494 samples; test: 1,101 samples.
+    family      development  test
+    Benign            1,584   396
+    DarkNexus            73    18
+    Gafgyt                4     1
+    Generic              22     7
+    Mirai             2,257   538
+    Unknown             554   141
+  Gafgyt and Generic have very few samples, so their scores rest on very
+  few cases.
+
+Protocol:
+  1. Cross-validation on the development samples, with the 4 saved folds,
+     for RF, XGBoost, DT and SVM (the settings of the packet grid). Each
+     model is median imputation, standard scaling and the classifier,
+     fitted on the training folds only.
+  2. The classifier with the best CV macro-F1 is refitted on all
+     development samples and scored once on the test samples.
+
+Results:
+  Cross-validation macro-F1: RF 0.289, XGBoost 0.286, DT 0.280, SVM 0.268.
+  Test (RF, 1,101 samples): macro-F1 0.309, balanced accuracy 0.316,
+  accuracy 0.745. The packet-level configuration chosen by CV macro-F1
+  (Normalizer + PCA (14) + DT) reached macro-F1 0.299 and accuracy 0.648
+  on its test packets.
+  Benign and Mirai are recognised well (recall 0.94 and 0.82); DarkNexus
+  rarely (0.11), Unknown almost never (0.02), Gafgyt and Generic never.
+  Whole samples score higher than packets, but the rare families still
+  have too few samples to be learnt.
+
+
+src/pcap_sample_level.py
+------------------------
+Functions:
+  aggregate_by_hash(X, y, groups, stats)
+      One row per Hash with the chosen statistics of every feature and the
+      packet count. Missing values are skipped; a Hash with one packet gets
+      a standard deviation of 0. Stops with an error if a Hash has packets
+      from more than one family. Returns the table and the family of each
+      row.
+  hash_folds(groups, folds)
+      {hash: fold} from the validation rows of the saved folds; stops if a
+      hash is in two folds.
+  build_sample_tables(data_path, splits_path, stats)
+      Loads pcap.csv and the saved split with load_pcap and load_splits,
+      aggregates the development rows and the test rows separately, checks
+      that no hash is on both sides and that every development hash has a
+      fold. Returns X_dev, y_dev, fold_dev, X_test, y_test, class_names.
+  make_sample_model(classifier, seed)
+      Median imputation, StandardScaler and make_classifier from
+      pcap_grid.py.
+  score_predictions(y_true, pred, class_names)
+      Accuracy, balanced accuracy, macro-F1 and the F1 of every family.
+  cross_validate_samples(tables, classifiers, seed, show)
+      Trains on 3 folds and scores the 4th, for every fold and classifier.
+      The test samples are not used.
+  summarize_cv(fold_scores)
+      Mean of every score per classifier and the standard deviation of
+      macro-F1, best first.
+  sample_counts(tables)
+      Development and test samples per family.
+  run_sample_cv(data_path, splits_path, classifiers, seed, save, out_dir,
+                tables, show)
+      Runs the cross-validation and saves cv_folds.csv, cv_summary.csv and
+      samples.csv.
+  choose_classifier(cv_summary)
+      The classifier with the highest CV macro-F1 and that score.
+  compare_with_packets(sample_result, packet_path)
+      Puts the sample result next to the packet-level configuration marked
+      "best overall by macro-F1" in
+      results/pcap_fs_final_v1/comparison_with_grid_test.csv.
+  run_sample_final_test(data_path, splits_path, cv_summary_path, out_dir,
+                        packet_path, seed, tables, show)
+      Refits the chosen classifier on all development samples, scores the
+      test samples once and saves test_results.csv,
+      test_report_sample_<classifier>.txt,
+      test_confusion_sample_<classifier>.csv and
+      comparison_with_packets.csv. Refuses to run if test_results.csv
+      already exists, so the test samples are used only once.
+
+Results: results/pcap_sample_level_v1/. To recreate the cross-validation
+from the repository root (needs data/pcap.csv, about one minute):
+
+    import sys
+    sys.path[:0] = ["src", "scripts"]
+    from pcap_sample_level import run_sample_cv
+    run_sample_cv()
+
+The final test has been run once; run_sample_final_test() refuses to run
+again into the same folder.
+
+Tests: tests/test_pcap_sample_level.py (13 tests; synthetic data only, so
+pcap.csv is not needed to run them).
 
 
 -----------------------------------------------------------------------
