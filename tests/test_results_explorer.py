@@ -9,7 +9,8 @@ sys.path[:0] = [str(ROOT / "src"), str(ROOT / "scripts")]
 
 from results_explorer import (BEST_CONFUSION_PATH, best_by_k, cd_figures, class_counts, confusion_files,
                               describe_setting, filter_grid, load_grid, majority_accuracy, read_confusion,
-                              final_test_comparison, row_percentages, split_summary, stats_tables, top_configs,
+                              final_test_comparison, recall_by_family, row_percentages, sample_level_summary,
+                              split_summary, stats_tables, top_configs,
                               weighting_table)
 
 
@@ -76,3 +77,17 @@ def test_weighting_table_has_one_column_per_scheme():
 def test_statistical_results_are_found():
     assert {"landsat_friedman", "pcap_vs_random"} <= set(stats_tables())
     assert len(cd_figures()) == 4
+
+
+def test_recall_by_family_is_the_diagonal_share_of_each_row():
+    confusion = pd.DataFrame([[3, 1], [0, 0]], index=["a", "b"], columns=["a", "b"])
+    assert recall_by_family(confusion).tolist() == [0.75, 0.0]
+
+
+def test_sample_level_summary_compares_samples_with_packets():
+    comparison, recall = sample_level_summary()
+    assert comparison.level.tolist() == ["packet", "sample"]
+    assert recall.test_samples.sum() == 1101 and len(recall) == 6
+    benign = recall[recall.family == "Benign"].iloc[0]
+    assert benign.sample_recall == pytest.approx(372 / 396)
+    assert recall[recall.family.isin(["Gafgyt", "Generic"])].sample_recall.tolist() == [0.0, 0.0]

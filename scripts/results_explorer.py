@@ -13,6 +13,7 @@ WEIGHTING_PATH = RESULTS / "pcap_weighting_v1" / "summary.csv"
 CONFUSION_DIRS = (RESULTS / "pcap_final_v1", RESULTS / "pcap_fs_final_v1")
 BEST_CONFUSION_PATH = RESULTS / "pcap_final_v1" / "test_confusion_Normalizer_PCA_k14_DT.csv"
 STATS_DIR = RESULTS / "stats_v1"
+SAMPLE_LEVEL_DIR = RESULTS / "pcap_sample_level_v1"
 SELECTION_METHODS = ("MI_top", "HeapBFS", "Mask")
 GRID_COLUMNS = ["scaler", "reduction", "k", "classifier", "f1_macro_mean", "f1_macro_sd",
                 "balanced_accuracy_mean", "accuracy_mean"]
@@ -111,3 +112,22 @@ def stats_tables(folder=STATS_DIR):
 
 def cd_figures(folder=STATS_DIR):
     return sorted(Path(folder).glob("cd_*.png"))
+
+
+def recall_by_family(confusion):
+    totals = confusion.sum(axis=1).replace(0, np.nan)
+    return (pd.Series(np.diag(confusion.to_numpy()), index=confusion.index) / totals).fillna(0.0)
+
+
+def sample_level_summary(folder=SAMPLE_LEVEL_DIR, packet_confusion_path=BEST_CONFUSION_PATH):
+    folder = Path(folder)
+    comparison = pd.read_csv(folder / "comparison_with_packets.csv")
+    sample_files = sorted(folder.glob("test_confusion_sample_*.csv"))
+    if not sample_files:
+        raise FileNotFoundError(f"No sample-level confusion matrix in {folder}")
+    samples = read_confusion(sample_files[0])
+    packets = read_confusion(packet_confusion_path)
+    recall = pd.DataFrame({"family": samples.index, "test_samples": class_counts(samples).to_numpy(),
+                           "sample_recall": recall_by_family(samples).to_numpy(),
+                           "packet_recall": recall_by_family(packets).reindex(samples.index).to_numpy()})
+    return comparison, recall
