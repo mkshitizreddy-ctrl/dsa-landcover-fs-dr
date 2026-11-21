@@ -1,0 +1,3 @@
+Dataset,Rows used,Rows removed,Features used,Classes,Development rows,Test rows,Tuning rows,CV folds,Split rule
+Landsat (UCI Statlog),6435,0,36,6,4435,2000,4435,5,Official sat.trn / sat.tst files
+pcap (malware families),736839,812,36,6,591484,145355,22467,4,"Stratified, grouped by Hash, at most 5 rows per hash for tuning"

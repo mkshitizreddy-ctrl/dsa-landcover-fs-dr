@@ -17,7 +17,10 @@ def test_growth_recovers_a_known_exponent():
 def test_every_figure_and_table_is_written(tmp_path):
     paths = make_report_figures(tmp_path, show=lambda message: None)
     names = sorted(p.name for p in paths)
-    assert len(paths) == 11 and all(p.exists() and p.stat().st_size > 0 for p in paths)
-    assert sum(name.endswith(".png") for name in names) == 8 and sum(name.endswith(".csv") for name in names) == 3
+    assert len(paths) == 13 and all(p.exists() and p.stat().st_size > 0 for p in paths)
+    assert sum(name.endswith(".png") for name in names) == 9 and sum(name.endswith(".csv") for name in names) == 4
     complexity = pd.read_csv(tmp_path / "T1_complexity.csv")
     assert list(complexity.Stage)[0] == "Mutual information" and len(complexity) == 5
+    datasets = pd.read_csv(tmp_path / "T2_datasets.csv")
+    assert list(datasets["Rows used"]) == [6435, 736839]
+    assert list(datasets["Test rows"]) == [2000, 145355] and list(datasets["Features used"]) == [36, 36]

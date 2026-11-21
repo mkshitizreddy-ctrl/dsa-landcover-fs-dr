@@ -36,7 +36,7 @@ Two functions use a held-out test set and refuse to run a second time, so
 each test set is used only once: run_pso_final_test (Landsat sat.tst) and
 run_final_test (pcap test hashes).
 
-Tests: python -m pytest tests/ -q   (213 tests)
+Tests: python -m pytest tests/ -q   (215 tests)
 
 Folders:
   app/       the Streamlit app (Home.py, pages/, assets/)
@@ -1166,3 +1166,71 @@ To recreate results/stats_v1/ from the repository root:
 
 Tests: tests/test_stats_tests.py (22 tests), tests/test_results_explorer.py
 (13 tests).
+
+
+-----------------------------------------------------------------------
+REPORT FIGURES AND TABLES
+-----------------------------------------------------------------------
+
+scripts/make_report_figures.py
+------------------------------
+Draws every figure and table of the written report from the saved results
+in results/ and writes them to report/figures/. No experiment is run again,
+except the from-scratch MI, correlation and PCA on the Landsat training file,
+which take a few seconds.
+
+  style()                        shared plot style (fonts, grid, colours)
+  save(fig, out_dir, name)       writes <name>.png and returns its path
+  save_table(table, out_dir, name)
+                                 writes <name>.csv and returns its path
+  landsat_statistics()           MI scores and correlation matrix of the
+                                 standardised Landsat training file
+
+Figures:
+  F3 figure_mi                   MI of each Landsat feature, kept ones in blue
+  F4 figure_threshold_sweep      features kept against the threshold t
+  F5 figure_pca_variance         left: cumulative explained variance of our
+                                 PCA on sat.trn, with the k needed for 90%,
+                                 95% and 99% of the variance; right: how often
+                                 each k was chosen by the ten metaheuristics in
+                                 the component-count task
+                                 (results/mh_comparison_v1.csv)
+  F7 figure_hit_rates            share of runs that found the exact best
+                                 setting, four search tasks
+  F8 figure_convergence          mean best CV macro-F1 against configurations
+                                 tried on the pcap grid
+  F9 figure_grid_best            best CV macro-F1 of every scaler, reduction
+                                 and classifier on pcap
+  F10 figure_selection_vs_extraction
+                                 best selection against best extraction for
+                                 each scaler and classifier pair
+  F11 figure_weighting           per-family F1 under the three class weightings
+  F12 figure_confusion           test confusion matrices (row shares) of the
+                                 grid best and of our best selection setting
+
+Tables:
+  T1 table_complexity            theoretical and measured growth of each stage
+  T2 table_datasets              rows used and removed, features, classes,
+                                 development, test and tuning rows, CV folds
+                                 and split rule for Landsat and pcap (pcap
+                                 numbers are read from data/pcap_splits.npz,
+                                 so pcap.csv is not needed)
+  T3 table_landsat               Landsat test results of selection and PCA
+  T4 table_pcap_test             pcap test results of the chosen settings
+
+  growth(table, size, column, minimum)
+      Slope of log(time) against log(size), using sizes >= minimum.
+  make_report_figures(out_dir, show)
+      Writes all 13 files and returns their paths.
+
+F1 is app/assets/workflow.svg, F2 is the heap + BFS worked example and F6
+are the critical-difference diagrams in results/stats_v1/.
+
+To recreate report/figures/ from the repository root:
+
+    import sys
+    sys.path[:0] = ["src", "scripts"]
+    from make_report_figures import make_report_figures
+    make_report_figures()
+
+Tests: tests/test_make_report_figures.py (2 tests).

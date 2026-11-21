@@ -10,6 +10,8 @@ import matplotlib.pyplot as plt
 from landsat_data import ROOT, load_landsat, standardize
 from landsat_explorer import feature_names, select, threshold_sweep
 from meta_fs import ALGORITHMS
+from pca import PCA
+from pcap_data import load_splits
 from pcap_feature_selection import feature_statistics
 
 RESULTS = ROOT / "results"
@@ -274,16 +276,68 @@ def table_pcap_test(out_dir):
     return save_table(table[columns].round(4), out_dir, "T4_pcap_test")
 
 
+def figure_pca_variance(out_dir, thresholds=(0.90, 0.95, 0.99)):
+    X, _, _, _ = load_landsat()
+    pca = PCA(max_components=X.shape[1]).fit(X)
+    cumulative = np.cumsum(pca.explained_ratio)
+    k = np.arange(1, len(cumulative) + 1)
+    runs = pd.read_csv(RESULTS / "mh_comparison_v1.csv")
+    chosen = runs[(runs.task == "components") & (runs.method != "GRID")].n_components.dropna().astype(int)
+    counts = chosen.value_counts().reindex(k, fill_value=0)
+    fig, (left, right) = plt.subplots(1, 2, figsize=(9.6, 3.6), gridspec_kw={"width_ratios": [1.4, 1]})
+    left.plot(k, cumulative, color=SERIES[0], marker="o", markersize=3, linewidth=1.4)
+    for level, colour in zip(thresholds, RAMP):
+        needed = int(np.argmax(cumulative >= level)) + 1
+        left.axhline(level, color=colour, linewidth=0.8, linestyle="--", label=f"{level:.0%} of the variance: k = {needed}")
+        left.plot([needed], [cumulative[needed - 1]], marker="o", color=colour, markersize=7, zorder=3)
+    left.legend(loc="lower right", fontsize=8)
+    left.set_xlim(0.5, 20.5)
+    left.set_xticks(range(2, 21, 2))
+    left.set_ylim(min(cumulative[0], 0.5) - 0.02, 1.01)
+    left.set_xlabel("Number of components k")
+    left.set_ylabel("Cumulative explained variance")
+    left.set_title("Landsat: variance kept by our PCA (sat.trn)")
+    right.bar(k, counts, color=SERIES[1], width=0.7)
+    right.set_xlim(0.5, 12.5)
+    right.set_xlabel("Number of components k")
+    right.set_ylabel("Runs")
+    right.set_title(f"k chosen by the metaheuristics ({len(chosen)} runs)")
+    right.grid(axis="x", visible=False)
+    fig.tight_layout()
+    return save(fig, out_dir, "F5_landsat_pca_variance")
+
+
+def table_datasets(out_dir):
+    X_train, y_train, X_test, _ = load_landsat()
+    splits = load_splits()
+    meta = splits.meta
+    rows = [
+        {"Dataset": "Landsat (UCI Statlog)", "Rows used": len(X_train) + len(X_test),
+         "Rows removed": 0, "Features used": X_train.shape[1], "Classes": len(np.unique(y_train)),
+         "Development rows": len(X_train), "Test rows": len(X_test), "Tuning rows": len(X_train),
+         "CV folds": 5, "Split rule": "Official sat.trn / sat.tst files"},
+        {"Dataset": "pcap (malware families)", "Rows used": meta["n_rows"],
+         "Rows removed": meta["dropped_rows"], "Features used": len(splits.features),
+         "Classes": len(meta["class_names"]), "Development rows": len(splits.dev_idx),
+         "Test rows": len(splits.test_idx), "Tuning rows": len(splits.sample_idx),
+         "CV folds": meta["n_folds"],
+         "Split rule": f"Stratified, grouped by Hash, at most {meta['rows_per_hash']} rows per hash for tuning"},
+    ]
+    return save_table(pd.DataFrame(rows), out_dir, "T2_datasets")
+
+
 def make_report_figures(out_dir=FIGURE_DIR, show=print):
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
     style()
     scores, C = landsat_statistics()
     makers = [lambda: figure_mi(scores, C, out_dir), lambda: figure_threshold_sweep(scores, C, out_dir),
+              lambda: figure_pca_variance(out_dir),
               lambda: figure_hit_rates(out_dir), lambda: figure_convergence(out_dir),
               lambda: figure_grid_best(out_dir), lambda: figure_selection_vs_extraction(out_dir),
               lambda: figure_weighting(out_dir), lambda: figure_confusion(out_dir),
-              lambda: table_complexity(out_dir), lambda: table_landsat(out_dir), lambda: table_pcap_test(out_dir)]
+              lambda: table_complexity(out_dir), lambda: table_datasets(out_dir),
+              lambda: table_landsat(out_dir), lambda: table_pcap_test(out_dir)]
     paths = []
     for make in makers:
         paths.append(make())
