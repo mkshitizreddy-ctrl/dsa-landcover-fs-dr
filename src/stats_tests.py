@@ -146,6 +146,34 @@ def pcap_against_random(space, budget, path=None, score_column="best_f1", alpha=
     return compare_with_baseline(groups, RANDOM, alpha)
 
 
+def fisher_against_baseline(hits, runs, baseline=RANDOM, alpha=0.05):
+    if baseline not in hits:
+        raise ValueError(f"Baseline {baseline!r} has no runs")
+    base_hits, base_runs = int(hits[baseline]), int(runs[baseline])
+    rows = []
+    for name in hits:
+        if name == baseline:
+            continue
+        n_hits, n_runs = int(hits[name]), int(runs[name])
+        p_value = stats.fisher_exact([[n_hits, n_runs - n_hits], [base_hits, base_runs - base_hits]])[1]
+        rows.append({"algorithm": name, "hits": n_hits, "runs": n_runs, "hit_rate": n_hits / n_runs,
+                     "baseline_hits": base_hits, "baseline_runs": base_runs, "baseline_rate": base_hits / base_runs,
+                     "difference": n_hits / n_runs - base_hits / base_runs, "p_value": float(p_value)})
+    table = pd.DataFrame(rows)
+    table["p_holm"] = holm_adjust(table.p_value)
+    table["significant"] = table.p_holm < alpha
+    return table.sort_values("difference", ascending=False, kind="stable").reset_index(drop=True)
+
+
+def pcap_hit_rates(space, budget, path=None, hit_column="hit_best", alpha=0.05):
+    runs = pcap_runs(space, path)
+    chosen = runs[runs.budget == budget]
+    if chosen.empty:
+        raise ValueError(f"No runs with budget {budget}")
+    grouped = chosen.groupby("algorithm")[hit_column]
+    return fisher_against_baseline(grouped.sum().to_dict(), grouped.size().to_dict(), RANDOM, alpha)
+
+
 def landsat_rank_table(tasks=LANDSAT_TASKS, path=LANDSAT_MH_PATH, score_column="macro_f1", alpha=0.05):
     rows = []
     for task in tasks:
@@ -168,6 +196,11 @@ def run_statistical_tests(save=True, out_dir=STATS_DIR, alpha=0.05, show=print):
         for budget in sorted(pcap_runs(space).budget.unique()):
             comparisons.append(pcap_against_random(space, budget, alpha=alpha).assign(space=space, budget=int(budget)))
     tables["pcap_vs_random"] = pd.concat(comparisons, ignore_index=True)
+    hit_rates = []
+    for space in PCAP_SEARCH_PATHS:
+        for budget in sorted(pcap_runs(space).budget.unique()):
+            hit_rates.append(pcap_hit_rates(space, budget, alpha=alpha).assign(space=space, budget=int(budget)))
+    tables["pcap_hit_rates"] = pd.concat(hit_rates, ignore_index=True)
     for name, table in tables.items():
         show(f"{name}: {len(table)} rows")
     if save:

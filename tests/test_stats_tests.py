@@ -7,7 +7,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from stats_tests import (average_ranks, cd_groups, compare_with_baseline, friedman_test, holm_adjust, kruskal_test,
+from stats_tests import (average_ranks, cd_groups, compare_with_baseline, fisher_against_baseline, pcap_hit_rates, friedman_test, holm_adjust, kruskal_test,
                          landsat_friedman, landsat_nemenyi, nemenyi_critical_difference, nemenyi_pairs,
                          landsat_rank_table, pcap_against_random, pcap_kruskal, run_statistical_tests,
                          save_cd_diagrams, score_matrix)
@@ -134,11 +134,13 @@ def test_landsat_rank_table_has_ten_algorithms_per_task_and_ranks_averaging_five
 def test_run_statistical_tests_saves_every_table(tmp_path):
     messages = []
     tables = run_statistical_tests(out_dir=tmp_path, show=messages.append)
-    expected = {"landsat_friedman", "landsat_ranks", "landsat_nemenyi", "pcap_kruskal", "pcap_vs_random"}
+    expected = {"landsat_friedman", "landsat_ranks", "landsat_nemenyi", "pcap_kruskal", "pcap_vs_random",
+                "pcap_hit_rates"}
     assert set(tables) == expected
     assert {p.stem for p in tmp_path.glob("*.csv")} == expected
     assert len(tables["landsat_nemenyi"]) == 4 * 45 and len(tables["pcap_vs_random"]) == 2 * 3 * 10
-    assert messages[-1].startswith("Saved 5 tables")
+    assert len(tables["pcap_hit_rates"]) == 2 * 3 * 10
+    assert messages[-1].startswith("Saved 6 tables")
 
 
 def test_run_statistical_tests_writes_nothing_when_save_is_false(tmp_path):
@@ -161,3 +163,24 @@ def test_save_cd_diagrams_writes_one_png_per_task(tmp_path):
     assert [p.name for p in paths] == ["cd_landsat_fs.png", "cd_landsat_threshold.png",
                                        "cd_landsat_components.png", "cd_landsat_joint.png"]
     assert all(p.stat().st_size > 1000 for p in paths)
+
+
+def test_fisher_matches_scipy_and_applies_holm():
+    from scipy import stats
+    table = fisher_against_baseline({"RANDOM": 8, "GWO": 16, "SMA": 2}, {"RANDOM": 20, "GWO": 20, "SMA": 20})
+    assert list(table.algorithm) == ["GWO", "SMA"]
+    assert table.loc[0, "hit_rate"] == 0.8 and table.loc[0, "difference"] == pytest.approx(0.4)
+    assert table.loc[0, "p_value"] == pytest.approx(stats.fisher_exact([[16, 4], [8, 12]])[1])
+    assert (table.p_holm >= table.p_value).all()
+
+
+def test_fisher_refuses_a_missing_baseline():
+    with pytest.raises(ValueError, match="Baseline"):
+        fisher_against_baseline({"GWO": 3}, {"GWO": 20})
+
+
+def test_pcap_hit_rates_compare_ten_algorithms_with_twenty_runs_each():
+    table = pcap_hit_rates("grid", 400)
+    assert len(table) == 10 and (table.runs == 20).all() and (table.baseline_runs == 20).all()
+    gwo = table[table.algorithm == "GWO"].iloc[0]
+    assert (gwo.hits, gwo.baseline_hits) == (16, 8)
