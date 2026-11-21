@@ -6,7 +6,8 @@ import pandas as pd
 import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
-from pcap_sample_level import (SampleTables, aggregate_by_hash, cross_validate_samples, hash_folds, run_sample_cv,
+from pcap_sample_level import (SampleTables, aggregate_by_hash, choose_classifier, compare_with_packets,
+                               cross_validate_samples, hash_folds, run_sample_cv, run_sample_final_test,
                                sample_counts, score_predictions, summarize_cv)
 
 
@@ -105,3 +106,32 @@ def test_run_sample_cv_saves_three_tables_and_never_scores_the_test_samples(tmp_
     assert {p.name for p in tmp_path.iterdir()} == {"cv_folds.csv", "cv_summary.csv", "samples.csv"}
     assert summary.classifier.tolist() == ["DT"]
     assert sample_counts(tables).test_samples.sum() == 30
+
+
+def test_choose_classifier_takes_the_best_cv_macro_f1():
+    summary = pd.DataFrame({"classifier": ["DT", "RF", "SVM"], "f1_macro": [0.28, 0.29, 0.27]})
+    assert choose_classifier(summary) == ("RF", 0.29)
+
+
+def test_compare_with_packets_uses_the_configuration_chosen_by_cv_macro_f1():
+    sample = {"classifier": "RF", "cv_f1_macro": 0.29, "f1_macro": 0.31, "balanced_accuracy": 0.35,
+              "accuracy": 0.74}
+    table = compare_with_packets(sample)
+    assert table.level.tolist() == ["packet", "sample"]
+    assert table.configuration.iloc[0] == "Normalizer + PCA (14) + DT"
+    assert table.test_f1_macro.tolist() == pytest.approx([0.298698, 0.31], abs=1e-6)
+
+
+def test_final_test_runs_once_and_saves_every_output(tmp_path):
+    tables = make_tables()
+    cv_path = tmp_path / "cv_summary.csv"
+    pd.DataFrame({"classifier": ["SVM", "DT"], "f1_macro": [0.5, 0.9]}).to_csv(cv_path, index=False)
+    out = tmp_path / "final"
+    comparison = run_sample_final_test(cv_summary_path=cv_path, out_dir=out, tables=tables, show=lambda m: None)
+    assert {p.name for p in out.iterdir()} == {"test_results.csv", "test_report_sample_DT.txt",
+                                               "test_confusion_sample_DT.csv", "comparison_with_packets.csv"}
+    result = pd.read_csv(out / "test_results.csv").iloc[0]
+    assert result.classifier == "DT" and result.test_samples == 30 and result.f1_macro > 0.9
+    assert comparison.level.tolist() == ["packet", "sample"]
+    with pytest.raises(FileExistsError, match="already been used"):
+        run_sample_final_test(cv_summary_path=cv_path, out_dir=out, tables=tables, show=lambda m: None)

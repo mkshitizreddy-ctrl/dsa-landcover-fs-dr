@@ -10,10 +10,12 @@ from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
 
 from pcap_data import DATA_PATH, SPLITS_PATH, load_pcap, load_splits
+from pcap_final_test import save_test_outputs
 from pcap_grid import CLASSIFIERS, make_classifier
 
 ROOT = Path(__file__).resolve().parents[1]
 SAMPLE_DIR = ROOT / "results" / "pcap_sample_level_v1"
+PACKET_TEST_PATH = ROOT / "results" / "pcap_fs_final_v1" / "comparison_with_grid_test.csv"
 STATS = ("mean", "std", "min", "max")
 
 
@@ -136,3 +138,48 @@ def run_sample_cv(data_path=DATA_PATH, splits_path=SPLITS_PATH, classifiers=CLAS
         sample_counts(tables).to_csv(out_dir / "samples.csv", index=False)
         show(f"Saved cv_folds.csv, cv_summary.csv and samples.csv to {out_dir}")
     return summary
+
+
+def choose_classifier(cv_summary):
+    best = cv_summary.sort_values("f1_macro", ascending=False, kind="stable").iloc[0]
+    return best["classifier"], float(best["f1_macro"])
+
+
+def compare_with_packets(sample_result, packet_path=PACKET_TEST_PATH):
+    packets = pd.read_csv(packet_path)
+    chosen = packets[packets.chosen_as.str.contains("best overall by macro-F1", regex=False)]
+    if chosen.empty:
+        raise ValueError("No packet-level configuration is marked 'best overall by macro-F1'")
+    best = chosen.iloc[0]
+    rows = [{"level": "packet", "configuration": f"{best.scaler} + {best.method} ({best.param}) + {best.classifier}",
+             "cv_f1_macro": best.cv_f1_macro, "test_f1_macro": best.test_f1_macro,
+             "test_balanced_accuracy": best.test_balanced_accuracy, "test_accuracy": best.test_accuracy},
+            {"level": "sample", "configuration": f"per-hash statistics + {sample_result['classifier']}",
+             "cv_f1_macro": sample_result["cv_f1_macro"], "test_f1_macro": sample_result["f1_macro"],
+             "test_balanced_accuracy": sample_result["balanced_accuracy"],
+             "test_accuracy": sample_result["accuracy"]}]
+    return pd.DataFrame(rows)
+
+
+def run_sample_final_test(data_path=DATA_PATH, splits_path=SPLITS_PATH, cv_summary_path=SAMPLE_DIR / "cv_summary.csv",
+                          out_dir=SAMPLE_DIR, packet_path=PACKET_TEST_PATH, seed=42, tables=None, show=print):
+    out_dir = Path(out_dir)
+    if (out_dir / "test_results.csv").exists():
+        raise FileExistsError(f"{out_dir / 'test_results.csv'} exists: the test samples have already been used. "
+                              "Choose a new output folder only if you mean to evaluate again.")
+    classifier, cv_f1 = choose_classifier(pd.read_csv(cv_summary_path))
+    tables = build_sample_tables(data_path, splits_path) if tables is None else tables
+    show(f"Classifier chosen by CV macro-F1: {classifier} ({cv_f1:.4f})")
+    model = make_sample_model(classifier, seed).fit(tables.X_dev.to_numpy(dtype=float), tables.y_dev)
+    pred = model.predict(tables.X_test.to_numpy(dtype=float))
+    result = {"classifier": classifier, "cv_f1_macro": cv_f1, "train_samples": len(tables.y_dev),
+              "test_samples": len(tables.y_test), **score_predictions(tables.y_test, pred, tables.class_names)}
+    out_dir.mkdir(parents=True, exist_ok=True)
+    pd.DataFrame([result]).to_csv(out_dir / "test_results.csv", index=False)
+    save_test_outputs(out_dir, f"sample_{classifier}", tables.y_test, pred, tables.class_names)
+    comparison = compare_with_packets(result, packet_path)
+    comparison.to_csv(out_dir / "comparison_with_packets.csv", index=False)
+    show(f"Test samples {len(tables.y_test):,}: macro-F1 {result['f1_macro']:.4f}, "
+         f"balanced accuracy {result['balanced_accuracy']:.4f}, accuracy {result['accuracy']:.4f}")
+    show(f"Best packet-level configuration on its test packets: macro-F1 {comparison.test_f1_macro.iloc[0]:.4f}")
+    return comparison
