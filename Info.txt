@@ -36,7 +36,7 @@ Two functions use a held-out test set and refuse to run a second time, so
 each test set is used only once: run_pso_final_test (Landsat sat.tst) and
 run_final_test (pcap test hashes).
 
-Tests: python -m pytest tests/ -q   (228 tests)
+Tests: python -m pytest tests/ -q   (233 tests)
 
 Folders:
   app/       the Streamlit app (Home.py, pages/, assets/)
@@ -130,14 +130,17 @@ app/pages/5_pcap_Final_Test.py
   The held-out test results of every configuration chosen by
   cross-validation, selection and extraction side by side, as a table and
   a bar chart; a confusion matrix of any tested configuration, shown as the
-  percentage of each true family; and the class-weighting results.
+  percentage of each true family; the class-weighting results; and whole
+  malware samples against packets (test scores and recall per family, from
+  results/pcap_sample_level_v1/).
 
 app/pages/6_Statistical_Tests.py
   The tests of src/stats_tests.py, read from results/stats_v1/. Landsat:
   the Friedman table, and for a chosen task its critical-difference diagram
   and the pairs that differ significantly. pcap: the Kruskal-Wallis table,
   and for a chosen search space and budget each algorithm against random
-  search.
+  search, on the best F1 reached and on how often it hits the best
+  configuration.
 
 scripts/results_explorer.py
   Reads the saved results for pages 3 to 6. It only reads files; nothing is
@@ -168,6 +171,13 @@ scripts/results_explorer.py
       balanced).
   stats_tables(folder) / cd_figures(folder)
       Every table and critical-difference figure in results/stats_v1/.
+  recall_by_family(confusion)
+      The diagonal of a confusion matrix divided by each row total: the
+      share of each true family predicted correctly (0 for an empty row).
+  sample_level_summary(folder, packet_confusion_path)
+      The comparison of samples with packets from
+      results/pcap_sample_level_v1/, and per family the number of test
+      samples with the recall as samples and as packets.
 
 Adding a page: put a file in app/pages/ whose name starts with a number
 (the order in the sidebar), start it with "from common import setup_page",
@@ -1077,6 +1087,9 @@ Which test, and why:
                          search) differ at all, at each budget?
     Mann-Whitney U test  each algorithm against random search, two-sided,
                          on the best F1 each run found
+    Fisher's exact test  each algorithm against random search on how many
+                         of its 20 runs hit the best configuration
+                         (2 x 2 table: hits and misses of each)
     Holm correction      for testing ten algorithms at once
 
 Findings:
@@ -1086,8 +1099,12 @@ Findings:
   but only SMA differs significantly from the top six.
   pcap: no algorithm finds a significantly better F1 than random search at
   any budget; SMA always, and HHO, WOA, MFO, GA and DE at larger budgets,
-  are significantly worse. This concerns the F1 reached, not how often the
-  exact best configuration is hit.
+  are significantly worse. This concerns the F1 reached.
+  Hitting the exact best: on the grid at budget 400 GWO hit it in 16 of 20
+  runs and random search in 8 of 20, not significant after the Holm
+  correction (p = 0.022, adjusted 0.22). Only SSA on the selection settings
+  at budget 400 hits it significantly more often (13 against 2 of 20,
+  adjusted p = 0.008).
 
 
 src/stats_tests.py
@@ -1139,12 +1156,21 @@ Functions, independent runs (pcap):
       Kruskal-Wallis test at every budget, with the best method by mean.
   pcap_against_random(space, budget, path, score_column, alpha)
       compare_with_baseline at one budget.
+  fisher_against_baseline(hits, runs, baseline, alpha)
+      {algorithm: hits} and {algorithm: runs} -> each algorithm against the
+      baseline with scipy's two-sided Fisher's exact test on the 2 x 2 table
+      of hits and misses; Holm-adjusted p-values; sorted by the difference
+      in hit rate, best first.
+  pcap_hit_rates(space, budget, path, hit_column, alpha)
+      fisher_against_baseline on the hit_best column of the saved runs at
+      one budget.
 
 Saving and figures:
   run_statistical_tests(save, out_dir, alpha, show)
       Runs everything above and returns the tables. save=True writes
       results/stats_v1/: landsat_friedman.csv, landsat_ranks.csv,
-      landsat_nemenyi.csv, pcap_kruskal.csv, pcap_vs_random.csv.
+      landsat_nemenyi.csv, pcap_kruskal.csv, pcap_vs_random.csv,
+      pcap_hit_rates.csv.
   cd_groups(ranks, cd)
       Which algorithms to join with a bar: walks through the sorted ranks,
       extends each group while it stays within the CD, and skips a group
@@ -1164,8 +1190,8 @@ To recreate results/stats_v1/ from the repository root:
     run_statistical_tests()
     save_cd_diagrams()
 
-Tests: tests/test_stats_tests.py (22 tests), tests/test_results_explorer.py
-(13 tests).
+Tests: tests/test_stats_tests.py (25 tests), tests/test_results_explorer.py
+(15 tests).
 
 
 -----------------------------------------------------------------------
