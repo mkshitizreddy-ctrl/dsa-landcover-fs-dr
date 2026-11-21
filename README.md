@@ -40,7 +40,9 @@ src/
   pcap_fs_search.py    metaheuristic search over those settings, and feature-mask search
   pcap_fs_final_test.py  single test evaluation of the chosen selection settings
   pcap_class_weights.py  class weighting (none, sqrt, balanced) on the best configurations
-tests/                 unit tests (228 in total)
+  pcap_sample_level.py   per-sample classification: one row per malware sample (Hash)
+  stats_tests.py       Friedman, Nemenyi, Kruskal-Wallis, Mann-Whitney, Fisher and Holm tests; critical-difference diagrams
+tests/                 unit tests (233 in total)
 scripts/               experiment runners for studies 1 and 2, pcap pilot and timing
 results/               all experiment outputs (csv, txt, logs)
 report/                written reports
@@ -64,11 +66,15 @@ The graphical interface is a Streamlit app:
 streamlit run app/Home.py
 ```
 
-It opens at http://localhost:8501 with three pages:
+It opens at http://localhost:8501 with seven pages:
 
 - **Home**: the workflow diagram of how the algorithms link, the three studies and key results.
 - **Feature Selection (Landsat)**: move the correlation threshold and watch mutual information, the correlation graph and heap + BFS (or Union-Find, or the naive method) choose features; optional PCA; scored live with our kNN on a validation split.
 - **Metaheuristic Search**: run any of the ten algorithms, or all of them, over the pcap grid or the pcap selection settings, and compare the result with the true best.
+- **pcap Data**: how the packets are split by Hash, the families and their test counts, and the 36 features, read from the saved splits.
+- **pcap Grid Results**: filter and rank the 924 cross-validated configurations and see the best score at every component count *k*.
+- **pcap Final Test**: held-out test results with selection and extraction side by side, a confusion matrix for any tested configuration, class weighting, and whole malware samples against packets.
+- **Statistical Tests**: Friedman and Nemenyi tests with critical-difference diagrams for Landsat; for pcap, every algorithm against random search on the score reached and on how often it hits the best configuration.
 
 The app only calls the project's functions, and its live results use validation data or saved cross-validation scores, never a test set.
 
@@ -219,6 +225,19 @@ The first call is a short check of the whole pipeline; the second is the full co
 
 Outputs: `results/mh_comparison_v1.csv`, `results/mh_convergence_v1.csv`.
 
+### Are the differences significant?
+
+All ten algorithms ran on the same 15 blocks (3 seeds x 5 outer folds), so the runs are paired: the Friedman test checks whether the algorithms differ at all, and the Nemenyi test which pairs differ (critical difference 3.50 average ranks for 10 algorithms and 15 blocks; `src/stats_tests.py`).
+
+| Task | Friedman p | Best average rank | Pairs that differ significantly |
+|---|---|---|---|
+| Feature masks | 0.0001 | PSO (3.73) | 6 of 45: PSO, DE, GA, GWO, SSA and ABC each better than SMA |
+| Threshold *t* | 0.070 | SSA (4.43) | none |
+| Component count *k* | 0.735 | ABC (5.40) | none |
+| Joint (*t*, *k*) | 0.002 | PSO (3.73) | 3 of 45: PSO better than DE and WOA, GWO better than WOA |
+
+PSO ranks first for feature masks, but among the top six no pair differs significantly. Critical-difference diagrams: `results/stats_v1/cd_landsat_*.png`.
+
 ---
 
 ## 3. Malware family classification (pcap)
@@ -252,6 +271,16 @@ Random Forest and XGBoost on 5 original columns (3rd to 7th) cost only 0.01–0.
 ### Metaheuristic search over the grid
 
 The same ten algorithms search the 924 configurations, with each candidate's CV score looked up from the grid, and random search as the baseline (20 seeds per setting). With a budget of 400 evaluations, GWO found the exact best configuration in 80% of runs while trying 219 of 924 configurations; random search at that cost would succeed about 24% of the time. SSA (65%) and PSO (60%) also beat random search clearly; GA, DE, WOA, HHO and SMA converged early and rarely reached the top.
+
+### Is the search better than random search?
+
+Each algorithm ran 20 times with its own seeds on one fixed search space, so the runs are independent: the Kruskal-Wallis test checks whether the 11 methods differ, Mann-Whitney U tests compare each algorithm's best F1 with random search, and Fisher's exact tests compare how often each hits the best configuration, both with the Holm correction for ten comparisons (`src/stats_tests.py`).
+
+- The methods differ at every budget (Kruskal-Wallis p < 0.001).
+- **Best F1 reached:** no algorithm is significantly better than random search at any budget, on the grid or on the selection settings. SMA is significantly worse at every budget, and HHO, WOA, MFO, GA and DE at larger budgets.
+- **Hitting the exact best:** on the grid at budget 400, GWO hit it in 16 of 20 runs and random search in 8 of 20; this is not significant after the Holm correction (p = 0.022, adjusted 0.22). On the selection settings at budget 400, SSA hit it in 13 of 20 runs and random search in 2 of 20, the only significant difference (adjusted p = 0.008).
+
+Outputs: `results/stats_v1/`, shown on the app's Statistical Tests page.
 
 ### Held-out test results
 
@@ -309,6 +338,17 @@ Gafgyt has 10,286 development packets but only 4 development hashes, so the grid
 
 Values are CV macro-F1. Mild (sqrt) weighting helps the classifiers that favoured Mirai; full balancing raises balanced accuracy (to 0.424 for SVM) but lowers macro-F1, because Mirai F1 falls from 0.64 to 0.23; the Decision Tree gets worse with any weighting. No weighting brought Gafgyt above 0.14 F1 or Generic above 0.09: with so few malware samples the limit is the data, not the loss.
 
+### Whole malware samples instead of packets
+
+All packets of one Hash come from one malware sample. `src/pcap_sample_level.py` summarises each Hash into one row (mean, standard deviation, minimum and maximum of each feature, and the packet count: 145 columns), giving 4,494 development and 1,101 test samples from the same split, cross-validates RF, XGBoost, DT and SVM on the same 4 folds, and scores the best (RF, CV macro-F1 0.289) once on the test samples.
+
+| Unit | Configuration | CV macro-F1 | Test macro-F1 | Test accuracy |
+|---|---|---|---|---|
+| Packet | Normalizer + PCA (14) + Decision Tree | 0.269 | 0.299 | 0.648 |
+| Sample | per-hash statistics + Random Forest | 0.289 | **0.309** | **0.745** |
+
+Benign and Mirai samples are recognised well (recall 0.94 and 0.82), but Gafgyt (4 development and 1 test sample) and Generic (22 and 7) are still never recognised, and Unknown falls from 0.17 recall as packets to 0.02 as samples.
+
 ### Findings
 
 - CV selection held up on unseen malware samples: the CV accuracy leader has the highest test accuracy, and the CV macro-F1 leader the highest test macro-F1.
@@ -317,6 +357,8 @@ Values are CV macro-F1. Mild (sqrt) weighting helps the classifiers that favoure
 - The top of the grid is a plateau: the 10 best configurations lie within 0.012 CV macro-F1.
 - Gafgyt and Generic are not recognised by any configuration; scaling, reduction, selection or classifier choice does not change this.
 - Our MI selection matches the best PCA configuration on the test set (0.299 vs 0.299 test macro-F1) with original features; class weighting does not fix the rare families.
+- Classifying whole malware samples gives the best test macro-F1 (0.309) and accuracy (0.745), but the rare families still fail: they have too few malware samples.
+- No metaheuristic reaches a significantly better F1 than random search; only SSA on the selection settings hits the best configuration significantly more often.
 
 ### Reproduce
 
@@ -331,6 +373,8 @@ from pcap_fs_final_test import run_fs_final_test
 from pcap_class_weights import run_class_weighting
 from run_pcap_small import run_pcap_pilot
 from write_pcap_report import write_pcap_report
+from pcap_sample_level import run_sample_cv, run_sample_final_test
+from stats_tests import run_statistical_tests, save_cd_diagrams
 
 create_splits()
 run_grid(quick_check=True)
@@ -344,11 +388,15 @@ fs_test_results = run_fs_final_test()
 weighting = run_class_weighting()
 run_pcap_pilot(pca=5)
 write_pcap_report()
+sample_cv = run_sample_cv()
+sample_test = run_sample_final_test()
+tables = run_statistical_tests()
+save_cd_diagrams()
 ```
 
-`run_grid(quick_check=True)` scores one fold with three component counts in a few minutes and writes to its own folder. The full grid is resumable: if it stops, calling it again skips what is done. `run_final_test` and `run_fs_final_test` refuse to run a second time, so each set of chosen settings is tested once. `run_pcap_feature_selection` resumes like the grid; it takes about 35 minutes, and the mask search about 5. `write_pcap_report` collects all results into `results/pcap_results.txt`.
+`run_grid(quick_check=True)` scores one fold with three component counts in a few minutes and writes to its own folder. The full grid is resumable: if it stops, calling it again skips what is done. `run_final_test`, `run_fs_final_test` and `run_sample_final_test` refuse to run a second time, so each set of chosen settings is tested once. `run_pcap_feature_selection` resumes like the grid; it takes about 35 minutes, and the mask search about 5. `write_pcap_report` collects all results into `results/pcap_results.txt`.
 
-Outputs: `results/pcap_small_v2/`, `results/pcap_grid_v1/`, `results/pcap_mh_v1/`, `results/pcap_final_v1/` (including `best_model.joblib`, the configuration with the highest CV accuracy), `results/pcap_fs_v1/`, `results/pcap_fs_search_v1/`, `results/pcap_mask_search_v1/`, `results/pcap_fs_final_v1/`, `results/pcap_weighting_v1/`.
+Outputs: `results/pcap_small_v2/`, `results/pcap_grid_v1/`, `results/pcap_mh_v1/`, `results/pcap_final_v1/` (including `best_model.joblib`, the configuration with the highest CV accuracy), `results/pcap_fs_v1/`, `results/pcap_fs_search_v1/`, `results/pcap_mask_search_v1/`, `results/pcap_fs_final_v1/`, `results/pcap_weighting_v1/`, `results/pcap_sample_level_v1/`, `results/stats_v1/`.
 
 ---
 
