@@ -15,8 +15,8 @@ PAGES = """
 - **Metaheuristic Search**: run any of the ten algorithms on the pcap configuration spaces and compare its result with the true best.
 - **pcap Data**: how the packets are split by Hash, the families and their test counts, and the 36 features, read from the saved splits.
 - **pcap Grid Results**: filter and rank the 924 cross-validated configurations and see the best score at every component count k.
-- **pcap Final Test**: held-out test results with selection and extraction side by side, a confusion matrix for any tested configuration, and class weighting.
-- **Statistical Tests**: Friedman and Nemenyi tests with critical-difference diagrams for Landsat, and every algorithm against random search for pcap.
+- **pcap Final Test**: held-out test results with selection and extraction side by side, a confusion matrix for any tested configuration, class weighting, and whole malware samples against packets.
+- **Statistical Tests**: Friedman and Nemenyi tests with critical-difference diagrams for Landsat; for pcap, every algorithm against random search on the score reached and on how often it hits the best configuration.
 """
 
 setup_page("Graph-Based Feature Selection and Dimensionality Reduction",
