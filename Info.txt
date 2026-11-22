@@ -1274,6 +1274,10 @@ Results:
 src/pcap_sample_level.py
 ------------------------
 Functions:
+  SampleTables(X_dev, y_dev, fold_dev, X_test, y_test, class_names)
+      Holds the per-sample tables: development and test features (one row
+      per Hash), their family numbers, the cross-validation fold of each
+      development row, and the family names.
   aggregate_by_hash(X, y, groups, stats)
       One row per Hash with the chosen statistics of every feature and the
       packet count. Missing values are skipped; a Hash with one packet gets
