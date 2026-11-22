@@ -81,6 +81,8 @@ app/pages/1_Feature_Selection_Landsat.py
   query time against all 36 features, the mutual information of every
   feature (kept or removed), and how many features each threshold keeps.
   Uses scripts/landsat_explorer.py.
+  load_data() makes the training/validation split and computes MI and
+  correlation once (cached by Streamlit).
 
 app/pages/2_Metaheuristic_Search.py
   Live metaheuristic search over the pcap grid (924 configurations) or the
@@ -89,6 +91,8 @@ app/pages/2_Metaheuristic_Search.py
   true rank and the convergence curve. "Compare all algorithms" runs every
   algorithm and random search over several seeds and shows hit rates.
   Uses scripts/search_explorer.py.
+  space_for(kind) loads the grid or selection space once (cached by
+  Streamlit).
 
 scripts/landsat_explorer.py
   feature_names(n_features)    "pixel p, band b" names of the 36 features
@@ -260,6 +264,7 @@ Mutual information between a feature and the class label, in nats.
 src/graph.py
 ------------
 Graph: undirected graph stored as an adjacency list.
+  add_edge(u, v)          adds v to u's list and u to v's list. O(1).
   build_corr_graph(C, t)  one node per feature; an edge joins i and j when
                           |correlation| > t. O(d^2) for d features.
   bfs(g, s, max_depth)    breadth-first search; returns each reached node's
@@ -326,6 +331,7 @@ PCA from scratch.
                              stops changing; returns (eigenvalue, vector)
   transform(X)               projects standardised data onto the components
   explained_ratio            share of variance of each component
+  fit_transform(X)           fit(X), then transform(X)
 
 src/landsat_data.py
 -------------------
@@ -432,6 +438,8 @@ Functions:
   check_subset, check_ranking, check_settings   input checks
   score_subset(...)              kNN accuracy, macro-F1, balanced accuracy
   evaluate_one(...)              one subset, never raises; failures recorded
+  append_result(row)             appends one row to the CSV; refuses a
+                                 file with different columns
   run_comparative_v3(data_path, delimiter, header, target,
                      validation_fraction, seed, k_neighbors, top_ks,
                      thresholds, save, show)
@@ -454,6 +462,8 @@ scripts/run_pso_nested_cv_v5.py
     search_pso_mask(split, epochs, population, seed, k_neighbors)
                         one PSO search; shared with the final test below
     inner_split, outer_rows, stability_rows, check_settings
+    append_csv(path, fields, row)   appends one row; refuses a file with
+                                    different columns
     run_pso_nested_cv(data_path, folds, seed, inner_validation_fraction,
                       epochs, population, k_neighbors, save, show)
         Returns (fold results, how often each feature was selected).
@@ -467,6 +477,9 @@ scripts/run_pso_final_test_v1.py
   the evaluation can only ever run once. It ran on 26 October 2026; calling
   run_pso_final_test again stops with an error by design.
     official_test_used(), saved_results()   check for and read the result
+    lock_official_test()   creates the output file before the test is read
+    test_row(...)          one result row for the output file
+    write_log(lines)       appends lines to the log
     run_pso_final_test(seed, validation_fraction, epochs, population,
                        k_neighbors, show)
 
@@ -479,9 +492,11 @@ scripts/run_pso_pca_svd.py
     ComponentCountSearch   the fitness function: rounds the PSO position to
                            a whole k, caches each k's macro-F1, and keeps the
                            best k (the smaller k on a tie)
+                           score_count(k) scores each k once;
+                           consider(k, value) updates the best k
     optimize_component_count(...)   one PSO search for k
     knn_scores, metrics, inner_split, evaluate_fold, check_settings,
-    load_landsat_train, append_log
+    load_landsat_train, append_log, timestamp (UTC time for the log)
     run_pso_pca_svd(folds, seed, epochs, population, validation_fraction,
                     k_neighbors, n_jobs, log_path, show)
         Returns (fold results, summary). Every step is appended to
@@ -564,13 +579,18 @@ always kept). All algorithms share this encoding, so only their search rules
 differ.
   ALGORITHMS, ALGORITHM_FAMILY   the 10 algorithms and their families
   MIN_POPULATION = 10            Mealpy's GA crashes below 10
+  default_classifier(k_neighbors)   scikit-learn kNN (k = 5 by default)
   build_optimizer(name, epochs, population)
   decode_mask(position, threshold)
   FSObjective      the fitness function. It caches each mask's score, so a
                    mask seen again is not refitted, but every call is still
                    counted against the budget.
+                   score_mask(mask) trains on the kept features and
+                   returns (fitness, validation macro-F1).
   FSResult         best mask, fitness, inner F1, calls, distinct masks,
                    run time and the best fitness per iteration
+                   selected_indices() gives the indices of the kept
+                   features.
   make_optimizer_and_stop(...)
       With max_evaluations, every algorithm stops after the same number of
       fitness calls (algorithms make different numbers of calls per
@@ -795,6 +815,7 @@ Functions:
   Tracker(space, near)
       The fitness function. It also records the configurations tried, the
       best score so far, and when the best (or a near-best) was found.
+      record_new(cfg) stores a configuration tried for the first time.
   run_algorithm(name, space, budget, population, seed, near)
       One run of one Mealpy algorithm with a fixed number of fitness calls.
   run_random(space, budget, seed, near)
@@ -803,6 +824,8 @@ Functions:
       The exact chance that random search finds the best configuration.
   summarize_runs(runs)
       Hit rates, mean rank and configurations tried per algorithm and budget.
+  check_algorithms(algorithms)
+      Stops with an error if an algorithm name is unknown.
   run_search(grid_path, algorithms, budgets, n_seeds, population, near,
              save, out_dir, show)
       Runs every algorithm for every budget and seed. Returns (runs,
@@ -890,6 +913,8 @@ Functions:
       Resume support and the rows written to fold_scores.csv.
   summarize(fold_csv, n_folds, out_csv)
       Averages the folds.
+  best_row(table)
+      The row with the highest mean CV macro-F1.
   compare_with_grid(summary, grid_path) / best_per_method(comparison)
       Puts our methods next to the grid's PCA, KernelPCA and LDA.
   run_pcap_feature_selection(data_path, splits_path, scalers, classifiers,
@@ -937,6 +962,8 @@ Functions:
       Returns (runs, summary, odds).
   MaskObjective(fold_data, class_ids, classifier, alpha, threshold)
       The mask fitness. It caches every mask and records the best.
+      cv_f1(cols) gives the mean macro-F1 over the 4 folds for those
+      columns.
   search_mask(name, fold_data, class_ids, budget, population, seed,
               classifier, alpha)
       One run of one algorithm, or of random masks (RANDOM).
@@ -975,6 +1002,9 @@ Functions:
       Picks the settings listed above, with the reasons for each.
   setting_tag(setting)
       A short name such as Normalizer_HeapBFS_t0.84_DT.
+  setting_key(row)
+      (scaler, method, param, classifier), so each setting is evaluated
+      only once.
   training_rows, choose_columns, fit_setting
       Refit helpers. Mutual information is computed once per scaler and
       number of training rows.
@@ -1057,6 +1087,8 @@ file, results/pcap_results.txt. It only reads result files.
                          extraction for every scaler and classifier
   selection_tag(row)     the file name used for a tested selection setting
   weighting_section()    section 7: class weighting (pcap_class_weights.py)
+  heading(title)         a title between two lines of =
+  best_of_each(ranked, column)   the top row for each value of column
   write_pcap_report(out_path)
 
 
@@ -1320,6 +1352,9 @@ which take a few seconds.
                                  writes <name>.csv and returns its path
   landsat_statistics()           MI scores and correlation matrix of the
                                  standardised Landsat training file
+  landsat_setting_name(setting)  readable name of a Landsat setting
+  hit_rates(table, value)        percentage of runs of each algorithm
+                                 that found the best setting
 
 Figures:
   F3 figure_mi                   MI of each Landsat feature, kept ones in blue
